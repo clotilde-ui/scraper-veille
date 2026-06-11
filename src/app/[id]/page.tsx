@@ -100,7 +100,7 @@ export default function ScrapeJobDetailPage() {
       {/* Header */}
       <div className="flex items-center gap-4">
         <button
-          onClick={() => router.push('/outils-web')}
+          onClick={() => router.push('/')}
           className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
