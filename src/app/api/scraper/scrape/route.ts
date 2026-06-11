@@ -74,6 +74,7 @@ export async function POST(request: Request) {
     let html: string;
     let httpStatus: number;
     let pageTitle = '';
+    let foundPageUrl = url;
 
     try {
       const controller = new AbortController();
@@ -91,6 +92,7 @@ export async function POST(request: Request) {
 
       clearTimeout(timeout);
       httpStatus = response.status;
+      foundPageUrl = response.url || url;
 
       if (!response.ok) {
         await db.update(scrapeUrls).set({
@@ -149,7 +151,7 @@ export async function POST(request: Request) {
     const $ = cheerio.load(html);
     pageTitle = $('title').first().text().trim() || '';
 
-    const baseUrl = new URL(url);
+    const baseUrl = new URL(foundPageUrl);
     const results: Array<{
       id: string;
       jobId: string;
@@ -166,7 +168,7 @@ export async function POST(request: Request) {
 
     const resolveUrl = (href: string): string | null => {
       try {
-        const resolved = new URL(href, url);
+        const resolved = new URL(href, foundPageUrl);
         resolved.hash = '';
         return resolved.href;
       } catch {
@@ -196,7 +198,7 @@ export async function POST(request: Request) {
         id: crypto.randomUUID(),
         jobId: jobId,
         urlId: urlId,
-        sourceUrl: url,
+        sourceUrl: foundPageUrl,
         resultType: type,
         value,
         label,
@@ -263,6 +265,8 @@ export async function POST(request: Request) {
             const end = Math.min(bodyText.length, match.index + keyword.length + 100);
             const context = bodyText.substring(start, end).trim();
             addResult('keyword_match', keyword, null, `...${context}...`, {
+              pageUrl: foundPageUrl,
+              pageTitle,
               position: match.index,
               matchNumber: matchCount + 1,
             });
@@ -306,7 +310,7 @@ export async function POST(request: Request) {
       const href = $(el).attr('href');
       if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:')) return;
       const resolved = resolveUrl(href);
-      if (resolved && isInternal(resolved) && resolved !== url) {
+      if (resolved && isInternal(resolved) && resolved !== foundPageUrl) {
         internalLinksSet.add(resolved);
       }
     });
@@ -333,6 +337,7 @@ export async function POST(request: Request) {
       internalLinks: Array.from(internalLinksSet),
       httpStatus,
       pageTitle,
+      sourceUrl: foundPageUrl,
     });
   } catch (error) {
     console.error('Erreur API scrape:', error);
