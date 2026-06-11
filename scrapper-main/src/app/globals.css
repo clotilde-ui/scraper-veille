@@ -1,0 +1,508 @@
+@import "tailwindcss";
+@plugin "tailwindcss-animate";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ============================================
+   Design Tokens — SONATE
+   Charte: #123C33 (vert), #FF6B3D (orange),
+           #F6F1E8 (crème), #1F2421 (noir)
+   ============================================ */
+
+:root {
+  /* Surfaces — fond ivoire newsletter SONATE + cards blanches posées */
+  --background: #F8F4ED;
+  --foreground: #1F2421;
+  --surface: #FFFFFF;
+  --surface-secondary: #F1ECE0;
+  --surface-hover: #E7DFCE;
+
+  /* Borders — très fines tirées du crème (look newsletter) */
+  --border: #ECE3D2;
+  --border-hover: #B8AE9A;
+  --border-active: #1F2421;
+
+  /* Text — hiérarchie noir SONATE */
+  --text-primary: #1F2421;
+  --text-secondary: #4A5048;
+  --text-tertiary: #8B8F88;
+  --text-quaternary: #B8AE9A;
+
+  /* Primary — vert SONATE #123C33 */
+  --primary: #123C33;
+  --primary-hover: #1A5749;
+  --primary-light: #E5EEEA;
+  --primary-muted: rgba(18, 60, 51, 0.06);
+
+  /* Accent — orange SONATE #FF6B3D */
+  --accent-brand: #FF6B3D;
+  --accent-brand-hover: #E55A2C;
+  --accent-brand-light: #FFE9DF;
+
+  /* Semantic — Error */
+  --danger: #DC2626;
+  --danger-light: #FEF2F2;
+
+  /* Semantic — Custom */
+  --success: #16A34A;
+  --success-light: #F0FDF4;
+  --warning: #FF6B3D;
+  --warning-light: #FFE9DF;
+  --info: #0284C7;
+  --info-light: #F0F9FF;
+
+  /* Elevation — ombres newsletter (douces et diffuses, jamais agressives) */
+  --shadow-xs: 0 1px 2px 0 rgba(31, 36, 33, 0.03);
+  --shadow-sm: 0 1px 3px 0 rgba(31, 36, 33, 0.04), 0 1px 2px 0 rgba(31, 36, 33, 0.03);
+  --shadow-md: 0 4px 8px -2px rgba(31, 36, 33, 0.05), 0 2px 4px -1px rgba(31, 36, 33, 0.03);
+  --shadow-lg: 0 10px 20px -4px rgba(31, 36, 33, 0.07), 0 4px 8px -2px rgba(31, 36, 33, 0.04);
+  --shadow-hover: 0 16px 32px -8px rgba(31, 36, 33, 0.10), 0 6px 12px -4px rgba(31, 36, 33, 0.05);
+
+  /* Shape — radius newsletter (modéré, ni carré ni trop arrondi) */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+
+  /* Motion */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* shadcn/ui compatibility aliases */
+  --card: var(--surface);
+  --card-foreground: var(--text-primary);
+  --popover: var(--surface);
+  --popover-foreground: var(--text-primary);
+  --primary-foreground: #FFFFFF;
+  --secondary: var(--surface-secondary);
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--surface-secondary);
+  --muted-foreground: var(--text-secondary);
+  --accent: var(--primary-light);
+  --accent-foreground: var(--primary);
+  --destructive: var(--danger);
+  --destructive-foreground: #FFFFFF;
+  --input: var(--border);
+  --ring: var(--primary);
+  --radius: 0.5rem;
+}
+
+.dark {
+  /* Dark Surfaces — noir SONATE #1F2421 */
+  --background: #1F2421;
+  --foreground: #F6F1E8;
+  --surface: #2A2F2C;
+  --surface-secondary: #353A37;
+  --surface-hover: #4A5048;
+
+  /* Dark Borders */
+  --border: #353A37;
+  --border-hover: #5C6259;
+  --border-active: #B8AE9A;
+
+  /* Dark Text — crème SONATE */
+  --text-primary: #F6F1E8;
+  --text-secondary: #B8AE9A;
+  --text-tertiary: #8B8F88;
+  --text-quaternary: #5C6259;
+
+  /* Dark Primary — vert SONATE éclairci pour contraste */
+  --primary: #4A9985;
+  --primary-hover: #6BB39E;
+  --primary-light: #1A3530;
+  --primary-muted: rgba(74, 153, 133, 0.10);
+
+  /* Dark Accent — orange SONATE */
+  --accent-brand: #FF8E66;
+  --accent-brand-hover: #FF6B3D;
+  --accent-brand-light: #4A1F0F;
+
+  /* Dark Semantic */
+  --danger: #F87171;
+  --danger-light: #450A0A;
+  --success: #4ADE80;
+  --success-light: #052E16;
+  --warning: #FF8E66;
+  --warning-light: #4A1F0F;
+  --info: #38BDF8;
+  --info-light: #082F49;
+
+  /* shadcn/ui dark compatibility */
+  --primary-foreground: #0F172A;
+  --card: var(--surface);
+  --card-foreground: var(--text-primary);
+  --popover: var(--surface);
+  --popover-foreground: var(--text-primary);
+  --secondary: var(--surface-secondary);
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--surface-secondary);
+  --muted-foreground: var(--text-secondary);
+  --accent: var(--primary-light);
+  --accent-foreground: var(--primary);
+  --destructive: var(--danger);
+  --destructive-foreground: #FFFFFF;
+  --input: var(--border);
+  --ring: var(--primary);
+
+  /* Dark Shadows */
+  --shadow-xs: none;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 2px 4px 0 rgba(0, 0, 0, 0.3), 0 1px 2px -1px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 4px 8px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+  --shadow-hover: 0 10px 20px -3px rgba(0, 0, 0, 0.5), 0 4px 8px -4px rgba(0, 0, 0, 0.3);
+}
+
+/* ============================================
+   Tailwind 4 Theme Integration
+   ============================================ */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-secondary: var(--surface-secondary);
+  --color-surface-hover: var(--surface-hover);
+  --color-border-default: var(--border);
+  --color-border-hover: var(--border-hover);
+  --color-border-active: var(--border-active);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-text-quaternary: var(--text-quaternary);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-light: var(--primary-light);
+  --color-success: var(--success);
+  --color-success-light: var(--success-light);
+  --color-warning: var(--warning);
+  --color-warning-light: var(--warning-light);
+  --color-danger: var(--danger);
+  --color-danger-light: var(--danger-light);
+  --color-info: var(--info);
+  --color-info-light: var(--info-light);
+  /* shadcn/ui color mappings */
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius: 0.5rem;
+  --font-sans: var(--font-manrope);
+  --font-mono: var(--font-geist-mono);
+  --color-accent-brand: var(--accent-brand);
+  --color-accent-brand-hover: var(--accent-brand-hover);
+  --color-accent-brand-light: var(--accent-brand-light);
+}
+
+/* ============================================
+   Typography
+   ============================================ */
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-manrope), var(--font-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.011em;
+  line-height: 1.5;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-manrope), var(--font-sans), -apple-system, BlinkMacSystemFont, sans-serif;
+  letter-spacing: -0.022em;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+h1 { letter-spacing: -0.028em; }
+h2 { letter-spacing: -0.024em; }
+
+/* ============================================
+   Custom Scrollbar
+   ============================================ */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-hover);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-active);
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 3px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+.scrollbar-thin:hover::-webkit-scrollbar-thumb {
+  background: var(--border-hover);
+}
+
+.project-table-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+.project-table-scroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+/* ============================================
+   react-day-picker theme
+   ============================================ */
+
+.rdp-root {
+  --rdp-accent-color: var(--primary);
+  --rdp-accent-background-color: var(--primary-light);
+  --rdp-today-color: var(--primary);
+  --rdp-day_button-border-radius: 0.5rem;
+}
+
+.dark .rdp-root {
+  color: var(--text-primary);
+}
+
+/* ============================================
+   Animations
+   ============================================ */
+
+@keyframes slide-in {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.animate-slide-in {
+  animation: slide-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fade-in 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes card-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-card-enter {
+  animation: card-enter 0.25s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes list-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-list-enter {
+  animation: list-enter 0.25s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.animate-list-enter:nth-child(1) { animation-delay: 0ms; }
+.animate-list-enter:nth-child(2) { animation-delay: 40ms; }
+.animate-list-enter:nth-child(3) { animation-delay: 80ms; }
+.animate-list-enter:nth-child(4) { animation-delay: 120ms; }
+.animate-list-enter:nth-child(5) { animation-delay: 160ms; }
+.animate-list-enter:nth-child(6) { animation-delay: 200ms; }
+.animate-list-enter:nth-child(7) { animation-delay: 240ms; }
+.animate-list-enter:nth-child(8) { animation-delay: 280ms; }
+.animate-list-enter:nth-child(9) { animation-delay: 320ms; }
+.animate-list-enter:nth-child(10) { animation-delay: 360ms; }
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-scale-in {
+  animation: scale-in 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ============================================
+   Utility Classes — Cards & Surfaces
+   ============================================ */
+
+.surface-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  transition: border-color var(--transition-base), box-shadow var(--transition-base), transform var(--transition-base);
+}
+.surface-card:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+.surface-card-interactive {
+  cursor: pointer;
+}
+.surface-card-interactive:hover {
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-hover);
+  transform: translateY(-2px);
+}
+
+/* Variante "brand" — fond vert SONATE + texte blanc, accents orange */
+.surface-card-brand {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  transition: box-shadow var(--transition-base), transform var(--transition-base), background var(--transition-base);
+}
+.surface-card-brand:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+.surface-card-brand-interactive {
+  cursor: pointer;
+}
+.surface-card-brand-interactive:hover {
+  background: var(--primary-hover);
+  box-shadow: var(--shadow-hover);
+  transform: translateY(-2px);
+}
+
+/* Outlined Text Field */
+.input-premium {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding-block: 0.5rem;
+  padding-inline: 0.75rem;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.input-premium:hover {
+  border-color: var(--border-hover);
+}
+.input-premium:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-muted);
+}
+.input-premium::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Date inputs — calendar icon & text styling */
+input[type="date"].input-premium {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  min-height: 2.375rem;
+}
+input[type="date"].input-premium::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.6;
+  padding: 2px;
+  border-radius: 4px;
+  transition: opacity 0.15s, background-color 0.15s;
+}
+input[type="date"].input-premium::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  background-color: var(--surface-hover);
+}
+.dark input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+
+/* Select premium — custom chevron & styling */
+select.input-premium {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.625rem center;
+  background-size: 1rem;
+  padding-right: 2.25rem;
+  cursor: pointer;
+  min-height: 2.375rem;
+}
+select.input-premium:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-muted);
+}
+select.input-premium option {
+  background: var(--surface);
+  color: var(--text-primary);
+  padding: 0.5rem;
+}
+.dark select.input-premium {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* Inline select for table cells */
+select.select-inline {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.25rem center;
+  background-size: 0.75rem;
+  padding-right: 1.25rem;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background-color var(--transition-fast);
+}
+select.select-inline:hover {
+  background-color: var(--surface-hover);
+}
+select.select-inline:focus {
+  background-color: var(--surface-hover);
+  outline: none;
+}
+select.select-inline option {
+  background: var(--surface);
+  color: var(--text-primary);
+}
+.dark select.select-inline {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* Skeleton loading block */
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-secondary) 25%, var(--surface) 50%, var(--surface-secondary) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-md);
+}
