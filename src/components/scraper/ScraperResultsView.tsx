@@ -43,6 +43,15 @@ export function ScraperResultsView({ results, isLoading }: ScraperResultsViewPro
 
   const activeTypes = SCRAPE_RESULT_TYPES.filter(t => counts[t.value] > 0);
 
+  const formatSourceUrl = (sourceUrl: string) => {
+    try {
+      const parsed = new URL(sourceUrl);
+      return parsed.hostname + parsed.pathname;
+    } catch {
+      return sourceUrl;
+    }
+  };
+
   const copyValue = async (id: string, value: string) => {
     await navigator.clipboard.writeText(value);
     setCopiedId(id);
@@ -98,7 +107,7 @@ export function ScraperResultsView({ results, isLoading }: ScraperResultsViewPro
             <tr>
               <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-28">Type</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Valeur</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-56">Source</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-56">Page trouvée</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-48">Label</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-64">Contexte</th>
               <th className="px-4 py-2 w-20" />
@@ -136,7 +145,7 @@ export function ScraperResultsView({ results, isLoading }: ScraperResultsViewPro
                       className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline max-w-[14rem]"
                       title={result.source_url}
                     >
-                      <span className="truncate">{new URL(result.source_url).hostname + new URL(result.source_url).pathname}</span>
+                      <span className="truncate">{formatSourceUrl(result.source_url)}</span>
                       <ExternalLink className="w-3 h-3 flex-shrink-0" />
                     </a>
                   ) : (

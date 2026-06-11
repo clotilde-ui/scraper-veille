@@ -14,7 +14,7 @@ function escapeCsvField(value: string): string {
 }
 
 const SCRAPE_RESULT_CSV_COLUMNS: CsvColumn<ScrapeResultRow>[] = [
-  { header: 'URL Source', accessor: (r) => r.source_url || '' },
+  { header: 'Page où le mot-clé a été trouvé', accessor: (r) => r.source_url || '' },
   { header: 'Type', accessor: (r) => SCRAPE_RESULT_TYPES.find(t => t.value === r.result_type)?.label || r.result_type },
   { header: 'Valeur', accessor: (r) => r.value },
   { header: 'Label', accessor: (r) => r.label || '' },

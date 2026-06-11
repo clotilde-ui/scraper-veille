@@ -243,7 +243,7 @@ export default function ScrapeJobDetailPage() {
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 space-y-4">
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Exporter les résultats</h3>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Exportez tous les résultats de ce job en format CSV. Le fichier contiendra l'URL source, le type, la valeur, le label et le contexte.
+            Exportez tous les résultats de ce job en format CSV. Le fichier contiendra la page où le mot-clé a été trouvé, le type, la valeur, le label et le contexte.
           </p>
           <div className="flex items-center gap-4">
             <ScraperResultExport results={results} jobName={job.name} />
