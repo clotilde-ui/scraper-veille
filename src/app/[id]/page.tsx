@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Play, Globe, FileText, Link2, Download } from 'lucide-react';
-import { useSupabaseScrapeJobs } from '@/hooks/useSupabaseScrapeJobs';
+import { useSupabaseScrapeJobs, parseKeywords } from '@/hooks/useSupabaseScrapeJobs';
 import { useSupabaseScrapeUrls } from '@/hooks/useSupabaseScrapeUrls';
 import { useSupabaseScrapeResults } from '@/hooks/useSupabaseScrapeResults';
 import { useScrapeOrchestrator } from '@/hooks/useScrapeOrchestrator';
@@ -50,7 +50,8 @@ export default function ScrapeJobDetailPage() {
       jobId: job.id,
       scrapeType: job.scrape_type,
       crawlDepth: job.crawl_depth,
-      keywords: job.keywords || [],
+      keywords: job.keywords?.include || [],
+      excludeKeywords: job.keywords?.exclude || [],
     });
   }, [job, orchestrator]);
 
@@ -65,7 +66,8 @@ export default function ScrapeJobDetailPage() {
       jobId: job.id,
       scrapeType: job.scrape_type,
       crawlDepth: job.crawl_depth,
-      keywords: job.keywords || [],
+      keywords: job.keywords?.include || [],
+      excludeKeywords: job.keywords?.exclude || [],
     });
   }, [job, orchestrator]);
 
@@ -115,8 +117,8 @@ export default function ScrapeJobDetailPage() {
               </span>
             )}
             <span>Profondeur {job.crawl_depth}</span>
-            {job.keywords && job.keywords.length > 0 && (
-              <span>{job.keywords.length} mot{job.keywords.length > 1 ? 's' : ''}-clé{job.keywords.length > 1 ? 's' : ''}</span>
+            {job.keywords && job.keywords.include.length > 0 && (
+              <span>{job.keywords.include.length} mot{job.keywords.include.length > 1 ? 's' : ''}-clé{job.keywords.include.length > 1 ? 's' : ''}</span>
             )}
           </div>
         </div>
@@ -182,16 +184,32 @@ export default function ScrapeJobDetailPage() {
           <StatCard label="Résultats" value={job.total_results} color="violet" />
 
           {/* Keywords */}
-          {job.keywords && job.keywords.length > 0 && (
-            <div className="col-span-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
-              <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Mots-clés recherchés</h3>
-              <div className="flex flex-wrap gap-2">
-                {job.keywords.map((kw, i) => (
-                  <span key={i} className="px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full text-sm">
-                    {kw}
-                  </span>
-                ))}
-              </div>
+          {job.keywords && (job.keywords.include.length > 0 || job.keywords.exclude.length > 0) && (
+            <div className="col-span-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 space-y-3">
+              {job.keywords.include.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Mots-clés recherchés</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {job.keywords.include.map((kw, i) => (
+                      <span key={i} className="px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full text-sm">
+                        {kw}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {job.keywords.exclude.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Mots-clés exclus</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {job.keywords.exclude.map((kw, i) => (
+                      <span key={i} className="px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-full text-sm">
+                        {kw}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

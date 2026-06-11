@@ -11,7 +11,7 @@ interface NewJobConfig {
   urls: string[];
   scrapeType: string; // JSON array of ScrapeType[]
   crawlDepth: number;
-  keywords: string[];
+  keywords: { include: string[]; exclude: string[] };
 }
 
 interface ScraperNewJobModalProps {
@@ -30,6 +30,7 @@ export function ScraperNewJobModal({ isOpen, onClose, onSubmit }: ScraperNewJobM
   const [scrapeTypes, setScrapeTypes] = useState<ScrapeType[]>(['pdfs']);
   const [crawlDepth, setCrawlDepth] = useState(1);
   const [keywordsText, setKeywordsText] = useState('');
+  const [excludeKeywordsText, setExcludeKeywordsText] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const parsedUrls = urlsText
@@ -38,6 +39,11 @@ export function ScraperNewJobModal({ isOpen, onClose, onSubmit }: ScraperNewJobM
     .filter(line => line.length > 0 && (line.startsWith('http://') || line.startsWith('https://')));
 
   const parsedKeywords = keywordsText
+    .split(',')
+    .map(k => k.trim())
+    .filter(k => k.length > 0);
+
+  const parsedExcludeKeywords = excludeKeywordsText
     .split(',')
     .map(k => k.trim())
     .filter(k => k.length > 0);
@@ -83,7 +89,9 @@ export function ScraperNewJobModal({ isOpen, onClose, onSubmit }: ScraperNewJobM
       urls: parsedUrls,
       scrapeType: JSON.stringify(scrapeTypes),
       crawlDepth,
-      keywords: needsKeywords ? parsedKeywords : [],
+      keywords: needsKeywords
+        ? { include: parsedKeywords, exclude: parsedExcludeKeywords }
+        : { include: [], exclude: [] },
     });
     // Reset
     setStep(1);
@@ -93,6 +101,7 @@ export function ScraperNewJobModal({ isOpen, onClose, onSubmit }: ScraperNewJobM
     setScrapeTypes(['pdfs']);
     setCrawlDepth(1);
     setKeywordsText('');
+    setExcludeKeywordsText('');
     onClose();
   };
 
@@ -255,18 +264,33 @@ export function ScraperNewJobModal({ isOpen, onClose, onSubmit }: ScraperNewJobM
               </div>
 
               {needsKeywords && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Mots-clés (séparés par des virgules)
-                    <span className="text-slate-400 font-normal ml-2">{parsedKeywords.length} mot{parsedKeywords.length !== 1 ? 's' : ''}-clé{parsedKeywords.length !== 1 ? 's' : ''}</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={keywordsText}
-                    onChange={e => setKeywordsText(e.target.value)}
-                    placeholder="Ex: tarif, contact, pdf, télécharger"
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      Mots-clés à rechercher
+                      <span className="text-slate-400 font-normal ml-2">{parsedKeywords.length} mot{parsedKeywords.length !== 1 ? 's' : ''}-clé{parsedKeywords.length !== 1 ? 's' : ''}</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={keywordsText}
+                      onChange={e => setKeywordsText(e.target.value)}
+                      placeholder="Ex: tarif, contact, pdf, télécharger"
+                      className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      Mots-clés à exclure
+                      <span className="text-slate-400 font-normal ml-2">optionnel</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={excludeKeywordsText}
+                      onChange={e => setExcludeKeywordsText(e.target.value)}
+                      placeholder="Ex: gratuit, archive, ancien"
+                      className="w-full px-3 py-2 border border-red-200 dark:border-red-800 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-red-400 focus:border-red-400"
+                    />
+                  </div>
                 </div>
               )}
             </>
@@ -299,6 +323,12 @@ export function ScraperNewJobModal({ isOpen, onClose, onSubmit }: ScraperNewJobM
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-500 dark:text-slate-400">Mots-clés</span>
                     <span className="font-medium text-slate-900 dark:text-white">{parsedKeywords.join(', ')}</span>
+                  </div>
+                )}
+                {parsedExcludeKeywords.length > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-500 dark:text-slate-400">Exclusions</span>
+                    <span className="font-medium text-red-600 dark:text-red-400">{parsedExcludeKeywords.join(', ')}</span>
                   </div>
                 )}
               </div>
