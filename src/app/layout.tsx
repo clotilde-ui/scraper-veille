@@ -23,6 +23,8 @@ const manrope = Manrope({
   weight: ["400", "500", "600", "700", "800"],
 });
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: "Scraper — SONATE",
   description: "Outil de scraping et d'audit de sites web",
