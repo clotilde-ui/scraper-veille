@@ -10,6 +10,7 @@ interface OrchestratorConfig {
   scrapeType: string;
   crawlDepth: number;
   keywords: string[];
+  excludeKeywords: string[];
 }
 
 interface ScrapeUrlRow {
@@ -40,7 +41,7 @@ export function useScrapeOrchestrator() {
   };
 
   const processJob = useCallback(async (config: OrchestratorConfig, isResume = false) => {
-    const { jobId, scrapeType, crawlDepth, keywords } = config;
+    const { jobId, scrapeType, crawlDepth, keywords, excludeKeywords } = config;
     setIsRunning(true);
     setIsPaused(false);
     setProcessedCount(0);
@@ -103,6 +104,7 @@ export function useScrapeOrchestrator() {
                   url: urlRow.url,
                   scrapeType,
                   keywords,
+                  excludeKeywords,
                 }),
                 signal: abortRef.current?.signal,
               });

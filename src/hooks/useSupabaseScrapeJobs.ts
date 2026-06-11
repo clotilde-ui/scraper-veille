@@ -2,6 +2,19 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 
+export interface ScrapeKeywords {
+  include: string[];
+  exclude: string[];
+}
+
+// Parse keywords stored as JSON — handles legacy plain array or new {include,exclude} format
+export function parseKeywords(raw: unknown): ScrapeKeywords | null {
+  if (!raw) return null;
+  if (Array.isArray(raw)) return { include: raw as string[], exclude: [] };
+  if (typeof raw === 'object' && raw !== null) return raw as ScrapeKeywords;
+  return null;
+}
+
 // Type mirrors what components expect (snake_case, matching old Supabase DB types)
 export interface ScrapeJobRow {
   id: string;
@@ -9,7 +22,7 @@ export interface ScrapeJobRow {
   status: string;
   scrape_type: string;
   crawl_depth: number;
-  keywords: string[] | null;
+  keywords: ScrapeKeywords | null;
   total_urls: number;
   completed_urls: number;
   failed_urls: number;
@@ -31,7 +44,7 @@ function normalize(row: Record<string, unknown>): ScrapeJobRow {
     status: (row.status ?? 'pending') as string,
     scrape_type: (row.scrapeType ?? row.scrape_type ?? 'links') as string,
     crawl_depth: (row.crawlDepth ?? row.crawl_depth ?? 1) as number,
-    keywords: row.keywords as string[] | null,
+    keywords: parseKeywords(row.keywords),
     total_urls: (row.totalUrls ?? row.total_urls ?? 0) as number,
     completed_urls: (row.completedUrls ?? row.completed_urls ?? 0) as number,
     failed_urls: (row.failedUrls ?? row.failed_urls ?? 0) as number,

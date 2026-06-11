@@ -50,7 +50,7 @@ async function updateJobCounters(jobId: string) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { jobId, urlId, url, scrapeType: rawScrapeType, keywords } = body;
+    const { jobId, urlId, url, scrapeType: rawScrapeType, keywords, excludeKeywords = [] } = body;
 
     if (!jobId || !urlId || !url) {
       return NextResponse.json({ error: 'jobId, urlId et url requis' }, { status: 400 });
@@ -186,6 +186,11 @@ export async function POST(request: Request) {
     const now = new Date().toISOString();
     const addResult = (type: string, value: string, label: string | null, context: string | null, metadata: Record<string, unknown> = {}) => {
       if (seenValues.has(`${type}:${value}`)) return;
+      // Filter out keyword matches whose context contains an exclude keyword
+      if (type === 'keyword_match' && excludeKeywords.length > 0) {
+        const searchText = `${value} ${context || ''}`.toLowerCase();
+        if (excludeKeywords.some((ex: string) => searchText.includes(ex.toLowerCase()))) return;
+      }
       seenValues.add(`${type}:${value}`);
       results.push({
         id: crypto.randomUUID(),

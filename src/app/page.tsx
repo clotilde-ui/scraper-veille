@@ -11,7 +11,6 @@ import { ScraperNewJobModal } from '@/components/scraper/ScraperNewJobModal';
 import { Pagination } from '@/components/Pagination';
 import { useRouter } from 'next/navigation';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { ScrapeType } from '@/types';
 
 export default function OutilsWebPage() {
   const { jobs, isLoading, error, addJob, deleteJob, retry, fetchJobs } = useSupabaseScrapeJobs();
@@ -52,9 +51,9 @@ export default function OutilsWebPage() {
   const handleNewJob = useCallback(async (config: {
     name: string;
     urls: string[];
-    scrapeType: ScrapeType;
+    scrapeType: string;
     crawlDepth: number;
-    keywords: string[];
+    keywords: { include: string[]; exclude: string[] };
   }) => {
     // Create job
     const job = await addJob({
@@ -62,7 +61,7 @@ export default function OutilsWebPage() {
       status: 'pending',
       scrape_type: config.scrapeType,
       crawl_depth: config.crawlDepth,
-      keywords: config.keywords.length > 0 ? config.keywords : null,
+      keywords: (config.keywords.include.length > 0 || config.keywords.exclude.length > 0) ? config.keywords : null,
       total_urls: config.urls.length,
       completed_urls: 0,
       failed_urls: 0,
