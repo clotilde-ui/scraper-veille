@@ -50,11 +50,26 @@ async function updateJobCounters(jobId: string) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { jobId, urlId, url, scrapeType, keywords } = body;
+    const { jobId, urlId, url, scrapeType: rawScrapeType, keywords } = body;
 
     if (!jobId || !urlId || !url) {
       return NextResponse.json({ error: 'jobId, urlId et url requis' }, { status: 400 });
     }
+
+    // Normalize scrapeType: supports legacy string ('all','links',...) or array ['pdfs','keywords']
+    let scrapeTypes: string[];
+    if (Array.isArray(rawScrapeType)) {
+      scrapeTypes = rawScrapeType;
+    } else if (typeof rawScrapeType === 'string') {
+      try { scrapeTypes = JSON.parse(rawScrapeType); } catch { scrapeTypes = [rawScrapeType]; }
+    } else {
+      scrapeTypes = ['links'];
+    }
+    const scrapeAll = scrapeTypes.includes('all');
+    const hasLinks = scrapeAll || scrapeTypes.includes('links');
+    const hasPdfs = scrapeAll || scrapeTypes.includes('pdfs');
+    const hasKeywords = scrapeAll || scrapeTypes.includes('keywords');
+    const hasEmails = scrapeAll;
 
     let html: string;
     let httpStatus: number;
@@ -186,7 +201,7 @@ export async function POST(request: Request) {
       });
     };
 
-    if (scrapeType === 'links' || scrapeType === 'all') {
+    if (hasLinks) {
       $('a[href]').each((_, el) => {
         const href = $(el).attr('href');
         if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:')) return;
@@ -197,7 +212,7 @@ export async function POST(request: Request) {
       });
     }
 
-    if (scrapeType === 'pdfs' || scrapeType === 'all') {
+    if (hasPdfs) {
       $('a[href]').each((_, el) => {
         const href = $(el).attr('href');
         if (!href) return;
@@ -217,7 +232,7 @@ export async function POST(request: Request) {
       });
     }
 
-    if (scrapeType === 'keywords' || scrapeType === 'all') {
+    if (hasKeywords) {
       if (keywords && keywords.length > 0) {
         $('script, style, noscript').remove();
         const bodyText = $('body').text().replace(/\s+/g, ' ').trim();
@@ -241,7 +256,7 @@ export async function POST(request: Request) {
       }
     }
 
-    if (scrapeType === 'all') {
+    if (hasEmails) {
       const bodyText = $('body').text();
       const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
       let emailMatch;
@@ -256,7 +271,7 @@ export async function POST(request: Request) {
       });
     }
 
-    if (scrapeType === 'all') {
+    if (hasEmails) {
       $('img[src]').each((_, el) => {
         const src = $(el).attr('src');
         if (!src) return;
