@@ -80,7 +80,8 @@ export function ScraperNewJobModal({ isOpen, onClose, onSubmit }: ScraperNewJobM
     );
   };
 
-  const needsKeywords = scrapeTypes.includes('keywords');
+  const needsKeywords = scrapeTypes.includes('keywords') || scrapeTypes.includes('pdfs');
+  const hasPdfsOnly = scrapeTypes.includes('pdfs') && !scrapeTypes.includes('keywords');
 
   const handleSubmit = () => {
     if (parsedUrls.length === 0 || !name.trim()) return;
@@ -109,7 +110,7 @@ export function ScraperNewJobModal({ isOpen, onClose, onSubmit }: ScraperNewJobM
     if (s === 1) return parsedUrls.length > 0 && name.trim().length > 0;
     if (s === 2) {
       if (scrapeTypes.length === 0) return false;
-      if (needsKeywords && parsedKeywords.length === 0) return false;
+      if (scrapeTypes.includes('keywords') && parsedKeywords.length === 0) return false;
       return true;
     }
     return true;
@@ -267,14 +268,17 @@ export function ScraperNewJobModal({ isOpen, onClose, onSubmit }: ScraperNewJobM
                 <div className="space-y-3">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      Mots-clés à rechercher
-                      <span className="text-slate-400 font-normal ml-2">{parsedKeywords.length} mot{parsedKeywords.length !== 1 ? 's' : ''}-clé{parsedKeywords.length !== 1 ? 's' : ''}</span>
+                      {hasPdfsOnly ? 'Filtrer les fichiers par mots-clés' : 'Mots-clés à rechercher'}
+                      {hasPdfsOnly
+                        ? <span className="text-slate-400 font-normal ml-2">optionnel — filtre sur nom + lien</span>
+                        : <span className="text-slate-400 font-normal ml-2">{parsedKeywords.length} mot{parsedKeywords.length !== 1 ? 's' : ''}-clé{parsedKeywords.length !== 1 ? 's' : ''}</span>
+                      }
                     </label>
                     <input
                       type="text"
                       value={keywordsText}
                       onChange={e => setKeywordsText(e.target.value)}
-                      placeholder="Ex: tarif, contact, pdf, télécharger"
+                      placeholder={hasPdfsOnly ? 'Ex: tarif, rapport, bilan' : 'Ex: tarif, contact, pdf, télécharger'}
                       className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
