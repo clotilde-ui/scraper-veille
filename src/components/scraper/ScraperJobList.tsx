@@ -86,7 +86,7 @@ export function ScraperJobList({ jobs, onSelect, onDelete }: ScraperJobListProps
                 <td className="px-4 py-3">
                   <div className="font-medium text-slate-900 dark:text-white text-sm">{job.name}</div>
                   <div className="text-xs text-slate-500 dark:text-slate-400">
-                    {job.users ? `${job.users.first_name} ${job.users.last_name}` : '—'}
+                    {'—'}
                   </div>
                 </td>
                 <td className="px-4 py-3">
