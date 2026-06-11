@@ -100,7 +100,7 @@ export default function OutilsWebPage() {
     toast.success(`Job "${config.name}" créé avec ${config.urls.length} URLs`);
 
     // Navigate to job detail
-    router.push(`/outils-web/${job.id}`);
+    router.push(`/${job.id}`);
   }, [addJob, router]);
 
   const handleDelete = useCallback(async (job: ScrapeJobRow) => {
@@ -119,7 +119,7 @@ export default function OutilsWebPage() {
   }, [confirm, deleteJob]);
 
   const handleSelect = useCallback((job: ScrapeJobRow) => {
-    router.push(`/outils-web/${job.id}`);
+    router.push(`/${job.id}`);
   }, [router]);
 
   return (
