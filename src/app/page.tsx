@@ -2,8 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { Plus, Globe, FileText, AlertTriangle, CheckCircle, LayoutGrid, List as ListIcon } from 'lucide-react';
-import { useSupabaseScrapeJobs } from '@/hooks/useSupabaseScrapeJobs';
-import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
+import { useSupabaseScrapeJobs, type ScrapeJobRow } from '@/hooks/useSupabaseScrapeJobs';
 import { useConfirm } from '@/contexts/ConfirmDialogContext';
 import { toast } from 'sonner';
 import { ScraperJobCard } from '@/components/scraper/ScraperJobCard';
@@ -11,17 +10,13 @@ import { ScraperJobList } from '@/components/scraper/ScraperJobList';
 import { ScraperNewJobModal } from '@/components/scraper/ScraperNewJobModal';
 import { Pagination } from '@/components/Pagination';
 import { useRouter } from 'next/navigation';
-import { getSupabaseClient } from '@/lib/supabase/client';
-import type { DbScrapeJobWithCreator } from '@/types/supabase';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { ScrapeType } from '@/types';
 
 export default function OutilsWebPage() {
   const { jobs, isLoading, error, addJob, deleteJob, retry, fetchJobs } = useSupabaseScrapeJobs();
-  const { user } = useSupabaseAuth();
   const { confirm } = useConfirm();
   const router = useRouter();
-  const supabase = getSupabaseClient();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
@@ -40,7 +35,7 @@ export default function OutilsWebPage() {
     ? filtered
     : filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  // Polling quand un job est en cours (mise à jour compteurs en temps réel)
+  // Polling when a job is running
   const hasActiveJobs = jobs.some(j => j.status === 'running' || j.status === 'paused');
   useEffect(() => {
     if (!hasActiveJobs) return;
@@ -61,16 +56,20 @@ export default function OutilsWebPage() {
     crawlDepth: number;
     keywords: string[];
   }) => {
-    if (!user) return;
-
     // Create job
     const job = await addJob({
       name: config.name,
+      status: 'pending',
       scrape_type: config.scrapeType,
       crawl_depth: config.crawlDepth,
       keywords: config.keywords.length > 0 ? config.keywords : null,
       total_urls: config.urls.length,
-      created_by: user.id,
+      completed_urls: 0,
+      failed_urls: 0,
+      total_results: 0,
+      error_message: null,
+      started_at: null,
+      finished_at: null,
     });
 
     if (!job) {
@@ -78,16 +77,23 @@ export default function OutilsWebPage() {
       return;
     }
 
-    // Insert initial URLs
+    // Insert initial URLs via API
     const urlsData = config.urls.map(url => ({
+      id: crypto.randomUUID(),
       job_id: job.id,
       url,
       status: 'pending' as const,
       depth: 0,
+      parent_url_id: null,
     }));
 
-    const { error: urlError } = await supabase.from('scrape_urls').insert(urlsData);
-    if (urlError) {
+    const res = await fetch('/api/scraper/urls', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(urlsData),
+    });
+
+    if (!res.ok) {
       toast.error('Erreur lors de l\'insertion des URLs');
       return;
     }
@@ -96,9 +102,9 @@ export default function OutilsWebPage() {
 
     // Navigate to job detail
     router.push(`/outils-web/${job.id}`);
-  }, [user, addJob, supabase, router]);
+  }, [addJob, router]);
 
-  const handleDelete = useCallback(async (job: DbScrapeJobWithCreator) => {
+  const handleDelete = useCallback(async (job: ScrapeJobRow) => {
     const confirmed = await confirm(
       `Supprimer le job "${job.name}" et tous ses résultats ?`,
       { title: 'Supprimer le job', variant: 'danger', confirmText: 'Supprimer' }
@@ -113,7 +119,7 @@ export default function OutilsWebPage() {
     }
   }, [confirm, deleteJob]);
 
-  const handleSelect = useCallback((job: DbScrapeJobWithCreator) => {
+  const handleSelect = useCallback((job: ScrapeJobRow) => {
     router.push(`/outils-web/${job.id}`);
   }, [router]);
 

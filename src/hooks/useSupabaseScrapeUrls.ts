@@ -1,25 +1,26 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getSupabaseClient } from '@/lib/supabase/client';
-import type { DbScrapeUrl, DbScrapeUrlInsert } from '@/types/supabase';
 
-const FETCH_TIMEOUT = 5000;
-
-const withTimeout = <T,>(promiseLike: PromiseLike<T>, ms: number): Promise<T> => {
-  const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error('Timeout')), ms)
-  );
-  return Promise.race([Promise.resolve(promiseLike), timeout]);
-};
+export interface ScrapeUrlRow {
+  id: string;
+  job_id: string;
+  url: string;
+  status: string;
+  depth: number;
+  parent_url_id: string | null;
+  http_status: number | null;
+  error_message: string | null;
+  page_title: string | null;
+  scraped_at: string | null;
+  created_at: string;
+}
 
 export function useSupabaseScrapeUrls(jobId: string) {
-  const [urls, setUrls] = useState<DbScrapeUrl[]>([]);
+  const [urls, setUrls] = useState<ScrapeUrlRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
-
-  const supabase = getSupabaseClient();
 
   const fetchUrls = useCallback(async (showLoading = true) => {
     if (!jobId) return;
@@ -27,27 +28,23 @@ export function useSupabaseScrapeUrls(jobId: string) {
     setError(null);
 
     try {
-      const result = await withTimeout(
-        supabase
-          .from('scrape_urls')
-          .select('*')
-          .eq('job_id', jobId)
-          .order('depth', { ascending: true })
-          .order('created_at', { ascending: true }),
-        FETCH_TIMEOUT
-      ) as { data: DbScrapeUrl[] | null; error: { message: string } | null };
-
+      const res = await fetch(`/api/scraper/urls?jobId=${encodeURIComponent(jobId)}`);
       if (!mountedRef.current) return;
-      if (result.error) { setError(result.error.message); }
-      else { setUrls(result.data || []); }
+
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || 'Erreur de chargement');
+      } else {
+        const data: ScrapeUrlRow[] = await res.json();
+        setUrls(data);
+      }
     } catch (err: unknown) {
       if (!mountedRef.current) return;
-      const msg = err instanceof Error ? err.message : 'Erreur';
-      setError(msg === 'Timeout' ? 'Délai dépassé' : msg);
+      setError(err instanceof Error ? err.message : 'Erreur');
     } finally {
       if (mountedRef.current) setIsLoading(false);
     }
-  }, [supabase, jobId]);
+  }, [jobId]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -55,37 +52,35 @@ export function useSupabaseScrapeUrls(jobId: string) {
     return () => { mountedRef.current = false; };
   }, [fetchUrls]);
 
-  // Realtime
-  useEffect(() => {
-    if (!jobId) return;
-    const channel = supabase
-      .channel(`scrape-urls-${jobId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'scrape_urls', filter: `job_id=eq.${jobId}` }, () => {
-        fetchUrls(false);
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [supabase, jobId, fetchUrls]);
-
-  const insertUrls = async (urlsData: DbScrapeUrlInsert[]) => {
+  const insertUrls = async (urlsData: Omit<ScrapeUrlRow, 'created_at'>[]) => {
     if (urlsData.length === 0) return [];
     try {
-      const result = await withTimeout(
-        supabase.from('scrape_urls').insert(urlsData).select(),
-        FETCH_TIMEOUT
-      ) as { data: DbScrapeUrl[] | null; error: { message: string } | null };
+      const res = await fetch('/api/scraper/urls', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(urlsData),
+      });
 
-      if (result.error) { setError(result.error.message); return []; }
-      return result.data || [];
+      if (!res.ok) {
+        setError('Erreur lors de l\'insertion des URLs');
+        return [];
+      }
+
+      const data: ScrapeUrlRow[] = await res.json();
+      return data;
     } catch {
       return [];
     }
   };
 
-  const updateUrl = async (urlId: string, data: Partial<DbScrapeUrl>) => {
+  const updateUrl = async (urlId: string, data: Partial<ScrapeUrlRow>) => {
     try {
-      await supabase.from('scrape_urls').update(data).eq('id', urlId);
-    } catch { /* fire-and-forget, realtime will catch up */ }
+      await fetch(`/api/scraper/urls/${urlId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+    } catch { /* fire-and-forget */ }
   };
 
   return { urls, isLoading, error, fetchUrls, insertUrls, updateUrl };

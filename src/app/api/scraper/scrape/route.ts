@@ -1,11 +1,11 @@
-import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import { scrapeJobs, scrapeUrls, scrapeResults } from '@/lib/db/schema';
+import { eq, and, sql } from 'drizzle-orm';
 import * as cheerio from 'cheerio';
-import type { SupabaseClient } from '@supabase/supabase-js';
 
-const FETCH_TIMEOUT = 15000; // 15s pour laisser 15s traitement + DB
+const FETCH_TIMEOUT = 15000;
 
-// Extensions de fichiers téléchargeables
 const DOWNLOAD_EXTENSIONS = [
   '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
   '.zip', '.rar', '.7z', '.tar', '.gz',
@@ -14,36 +14,41 @@ const DOWNLOAD_EXTENSIONS = [
 
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp', '.ico'];
 
-// Helper : mettre à jour les compteurs du job (appelé dans TOUS les cas)
-async function updateJobCounters(client: SupabaseClient, jobId: string) {
+async function updateJobCounters(jobId: string) {
   try {
-    const [completed, failed, skipped, resultCount] = await Promise.all([
-      client.from('scrape_urls').select('*', { count: 'exact', head: true }).eq('job_id', jobId).eq('status', 'completed'),
-      client.from('scrape_urls').select('*', { count: 'exact', head: true }).eq('job_id', jobId).eq('status', 'failed'),
-      client.from('scrape_urls').select('*', { count: 'exact', head: true }).eq('job_id', jobId).eq('status', 'skipped'),
-      client.from('scrape_results').select('*', { count: 'exact', head: true }).eq('job_id', jobId),
-    ]);
+    const [completedResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(scrapeUrls)
+      .where(and(eq(scrapeUrls.jobId, jobId), eq(scrapeUrls.status, 'completed')));
 
-    await client.from('scrape_jobs').update({
-      completed_urls: (completed.count || 0) + (skipped.count || 0),
-      failed_urls: failed.count || 0,
-      total_results: resultCount.count || 0,
-    }).eq('id', jobId);
+    const [skippedResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(scrapeUrls)
+      .where(and(eq(scrapeUrls.jobId, jobId), eq(scrapeUrls.status, 'skipped')));
+
+    const [failedResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(scrapeUrls)
+      .where(and(eq(scrapeUrls.jobId, jobId), eq(scrapeUrls.status, 'failed')));
+
+    const [resultCountResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(scrapeResults)
+      .where(eq(scrapeResults.jobId, jobId));
+
+    await db.update(scrapeJobs).set({
+      completedUrls: (completedResult?.count || 0) + (skippedResult?.count || 0),
+      failedUrls: failedResult?.count || 0,
+      totalResults: resultCountResult?.count || 0,
+      updatedAt: new Date().toISOString(),
+    }).where(eq(scrapeJobs.id, jobId));
   } catch (err) {
     console.error('Erreur mise à jour compteurs:', err);
   }
 }
 
-// POST - Scraper une seule URL
 export async function POST(request: Request) {
   try {
-    // Auth check
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
-    }
-
     const body = await request.json();
     const { jobId, urlId, url, scrapeType, keywords } = body;
 
@@ -51,9 +56,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'jobId, urlId et url requis' }, { status: 400 });
     }
 
-    const adminClient = createAdminClient();
-
-    // Fetch la page
     let html: string;
     let httpStatus: number;
     let pageTitle = '';
@@ -76,15 +78,14 @@ export async function POST(request: Request) {
       httpStatus = response.status;
 
       if (!response.ok) {
-        // Marquer URL en échec + MAJ compteurs
-        await adminClient.from('scrape_urls').update({
+        await db.update(scrapeUrls).set({
           status: 'failed',
-          http_status: httpStatus,
-          error_message: `HTTP ${httpStatus}`,
-          scraped_at: new Date().toISOString(),
-        }).eq('id', urlId);
+          httpStatus: httpStatus,
+          errorMessage: `HTTP ${httpStatus}`,
+          scrapedAt: new Date().toISOString(),
+        }).where(eq(scrapeUrls.id, urlId));
 
-        await updateJobCounters(adminClient, jobId);
+        await updateJobCounters(jobId);
 
         return NextResponse.json({
           error: `HTTP ${httpStatus}`,
@@ -96,15 +97,14 @@ export async function POST(request: Request) {
 
       const contentType = response.headers.get('content-type') || '';
       if (!contentType.includes('text/html') && !contentType.includes('application/xhtml')) {
-        // Pas du HTML — skip + MAJ compteurs
-        await adminClient.from('scrape_urls').update({
+        await db.update(scrapeUrls).set({
           status: 'skipped',
-          http_status: httpStatus,
-          error_message: `Content-Type non HTML: ${contentType}`,
-          scraped_at: new Date().toISOString(),
-        }).eq('id', urlId);
+          httpStatus: httpStatus,
+          errorMessage: `Content-Type non HTML: ${contentType}`,
+          scrapedAt: new Date().toISOString(),
+        }).where(eq(scrapeUrls.id, urlId));
 
-        await updateJobCounters(adminClient, jobId);
+        await updateJobCounters(jobId);
 
         return NextResponse.json({
           results: [],
@@ -120,35 +120,35 @@ export async function POST(request: Request) {
         ? 'Timeout (15s)'
         : (fetchErr as Error)?.message || 'Erreur réseau';
 
-      await adminClient.from('scrape_urls').update({
+      await db.update(scrapeUrls).set({
         status: 'failed',
-        error_message: msg,
-        scraped_at: new Date().toISOString(),
-      }).eq('id', urlId);
+        errorMessage: msg,
+        scrapedAt: new Date().toISOString(),
+      }).where(eq(scrapeUrls.id, urlId));
 
-      await updateJobCounters(adminClient, jobId);
+      await updateJobCounters(jobId);
 
       return NextResponse.json({ error: msg, results: [], internalLinks: [] }, { status: 502 });
     }
 
-    // Parse avec cheerio
     const $ = cheerio.load(html);
     pageTitle = $('title').first().text().trim() || '';
 
     const baseUrl = new URL(url);
     const results: Array<{
-      job_id: string;
-      url_id: string;
-      source_url: string;
-      result_type: string;
+      id: string;
+      jobId: string;
+      urlId: string;
+      sourceUrl: string;
+      resultType: string;
       value: string;
       label: string | null;
       context: string | null;
-      metadata: Record<string, unknown>;
+      metadata: string | null;
+      createdAt: string;
     }> = [];
     const seenValues = new Set<string>();
 
-    // Helper : résoudre URL relative
     const resolveUrl = (href: string): string | null => {
       try {
         const resolved = new URL(href, url);
@@ -159,7 +159,6 @@ export async function POST(request: Request) {
       }
     };
 
-    // Helper : vérifier si lien interne
     const isInternal = (href: string): boolean => {
       try {
         const parsed = new URL(href);
@@ -169,49 +168,44 @@ export async function POST(request: Request) {
       }
     };
 
-    // Helper : ajouter un résultat sans doublon
+    const now = new Date().toISOString();
     const addResult = (type: string, value: string, label: string | null, context: string | null, metadata: Record<string, unknown> = {}) => {
       if (seenValues.has(`${type}:${value}`)) return;
       seenValues.add(`${type}:${value}`);
       results.push({
-        job_id: jobId,
-        url_id: urlId,
-        source_url: url,
-        result_type: type,
+        id: crypto.randomUUID(),
+        jobId: jobId,
+        urlId: urlId,
+        sourceUrl: url,
+        resultType: type,
         value,
         label,
         context,
-        metadata,
+        metadata: Object.keys(metadata).length > 0 ? JSON.stringify(metadata) : null,
+        createdAt: now,
       });
     };
 
-    // --- Extraction des liens ---
     if (scrapeType === 'links' || scrapeType === 'all') {
       $('a[href]').each((_, el) => {
         const href = $(el).attr('href');
         if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:')) return;
-
         const resolved = resolveUrl(href);
         if (!resolved) return;
-
         const linkText = $(el).text().trim().substring(0, 200);
         addResult('link', resolved, linkText || null, null);
       });
     }
 
-    // --- Extraction PDFs / fichiers téléchargeables ---
     if (scrapeType === 'pdfs' || scrapeType === 'all') {
       $('a[href]').each((_, el) => {
         const href = $(el).attr('href');
         if (!href) return;
-
         const resolved = resolveUrl(href);
         if (!resolved) return;
-
         const lowerHref = resolved.toLowerCase();
         const isPdf = lowerHref.includes('.pdf');
         const isDownload = DOWNLOAD_EXTENSIONS.some(ext => lowerHref.includes(ext));
-
         if (isPdf) {
           const linkText = $(el).text().trim().substring(0, 200);
           addResult('pdf', resolved, linkText || null, null, { extension: '.pdf' });
@@ -223,24 +217,20 @@ export async function POST(request: Request) {
       });
     }
 
-    // --- Extraction mots-clés ---
     if (scrapeType === 'keywords' || scrapeType === 'all') {
       if (keywords && keywords.length > 0) {
         $('script, style, noscript').remove();
         const bodyText = $('body').text().replace(/\s+/g, ' ').trim();
-
         for (const keyword of keywords) {
           if (!keyword.trim()) continue;
           const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
           const regex = new RegExp(escapedKeyword, 'gi');
           let match;
           let matchCount = 0;
-
           while ((match = regex.exec(bodyText)) !== null && matchCount < 10) {
             const start = Math.max(0, match.index - 100);
             const end = Math.min(bodyText.length, match.index + keyword.length + 100);
             const context = bodyText.substring(start, end).trim();
-
             addResult('keyword_match', keyword, null, `...${context}...`, {
               position: match.index,
               matchNumber: matchCount + 1,
@@ -251,7 +241,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // --- Extraction emails (si type 'all') ---
     if (scrapeType === 'all') {
       const bodyText = $('body').text();
       const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
@@ -259,7 +248,6 @@ export async function POST(request: Request) {
       while ((emailMatch = emailRegex.exec(bodyText)) !== null) {
         addResult('email', emailMatch[0], null, null);
       }
-
       $('a[href^="mailto:"]').each((_, el) => {
         const href = $(el).attr('href');
         if (!href) return;
@@ -268,7 +256,6 @@ export async function POST(request: Request) {
       });
     }
 
-    // --- Extraction images (si type 'all') ---
     if (scrapeType === 'all') {
       $('img[src]').each((_, el) => {
         const src = $(el).attr('src');
@@ -283,7 +270,6 @@ export async function POST(request: Request) {
       });
     }
 
-    // --- Collecte liens internes pour crawl ---
     const internalLinksSet = new Set<string>();
     $('a[href]').each((_, el) => {
       const href = $(el).attr('href');
@@ -294,27 +280,22 @@ export async function POST(request: Request) {
       }
     });
 
-    // --- Sauvegarder résultats en DB ---
     if (results.length > 0) {
-      const { error: insertError } = await adminClient
-        .from('scrape_results')
-        .insert(results);
-
-      if (insertError) {
-        console.error('Erreur insertion résultats:', insertError.message);
+      try {
+        await db.insert(scrapeResults).values(results);
+      } catch (err) {
+        console.error('Erreur insertion résultats:', err);
       }
     }
 
-    // --- Mettre à jour l'URL ---
-    await adminClient.from('scrape_urls').update({
+    await db.update(scrapeUrls).set({
       status: 'completed',
-      http_status: httpStatus,
-      page_title: pageTitle.substring(0, 500),
-      scraped_at: new Date().toISOString(),
-    }).eq('id', urlId);
+      httpStatus: httpStatus,
+      pageTitle: pageTitle.substring(0, 500),
+      scrapedAt: new Date().toISOString(),
+    }).where(eq(scrapeUrls.id, urlId));
 
-    // --- Mettre à jour les compteurs du job ---
-    await updateJobCounters(adminClient, jobId);
+    await updateJobCounters(jobId);
 
     return NextResponse.json({
       results: results.length,

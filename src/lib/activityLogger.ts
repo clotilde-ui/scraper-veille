@@ -1,4 +1,5 @@
-import { getSupabaseClient } from '@/lib/supabase/client';
+// Activity logger stub — Supabase removed, no activity_logs table in Turso
+// Fire-and-forget: silently no-ops so existing callers don't break
 
 interface LogParams {
   userId: string | null;
@@ -9,19 +10,6 @@ interface LogParams {
   newData?: Record<string, unknown> | null;
 }
 
-export async function logActivity({ userId, action, entityType, entityId, oldData, newData }: LogParams) {
-  try {
-    const supabase = getSupabaseClient();
-    await supabase.from('activity_logs').insert({
-      user_id: userId,
-      action,
-      entity_type: entityType,
-      entity_id: entityId,
-      old_data: oldData || null,
-      new_data: newData || null,
-    });
-  } catch (err) {
-    // Fire-and-forget: don't let logging errors break the main flow
-    console.warn('Activity log error:', err);
-  }
+export async function logActivity(_params: LogParams): Promise<void> {
+  // No-op: activity logging removed with Supabase migration
 }
