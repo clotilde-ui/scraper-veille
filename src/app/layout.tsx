@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Manrope } from "next/font/google";
 import "./globals.css";
-import { SupabaseAuthProvider } from "@/contexts/SupabaseAuthContext";
 import { ConfirmDialogProvider } from "@/contexts/ConfirmDialogContext";
 import { AppShell } from "@/components/AppShell";
 import { Toaster } from "@/components/ui/sonner";
@@ -40,13 +39,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${manrope.variable} antialiased bg-background`}
       >
-        <SupabaseAuthProvider>
-          <ConfirmDialogProvider>
-            <AppShell>{children}</AppShell>
-            <ConfirmDialogContainer />
-            <Toaster richColors position="bottom-right" />
-          </ConfirmDialogProvider>
-        </SupabaseAuthProvider>
+        <ConfirmDialogProvider>
+          <AppShell>{children}</AppShell>
+          <ConfirmDialogContainer />
+          <Toaster richColors position="bottom-right" />
+        </ConfirmDialogProvider>
       </body>
     </html>
   );

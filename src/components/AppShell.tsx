@@ -1,15 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
+import { usePathname, useRouter } from 'next/navigation';
 import { LogOut } from 'lucide-react';
 
-const PUBLIC_ROUTES = ['/login', '/auth/callback'];
+const PUBLIC_ROUTES = ['/login'];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { user, signOut, isAuthenticated, isLoading } = useSupabaseAuth();
+  const router = useRouter();
 
   const isPublic = PUBLIC_ROUTES.some((r) => pathname.startsWith(r));
 
@@ -17,18 +16,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    if (typeof window !== 'undefined') window.location.href = '/login';
-    return null;
-  }
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/login');
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -45,12 +36,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
 
           <div className="flex items-center gap-3">
-            {user && (
-              <span className="text-sm text-text-secondary hidden sm:inline">{user.email}</span>
-            )}
             <button
               type="button"
-              onClick={() => signOut()}
+              onClick={handleLogout}
               className="inline-flex items-center gap-1.5 text-sm text-text-tertiary hover:text-text-primary px-2 py-1 rounded-md hover:bg-surface-hover transition-colors"
             >
               <LogOut className="w-4 h-4" />

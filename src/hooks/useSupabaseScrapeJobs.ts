@@ -1,28 +1,57 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getSupabaseClient } from '@/lib/supabase/client';
-import { logActivity } from '@/lib/activityLogger';
-import type { DbScrapeJobInsert, DbScrapeJobUpdate, DbScrapeJobWithCreator } from '@/types/supabase';
 
-const FETCH_TIMEOUT = 5000;
+// Type mirrors what components expect (snake_case, matching old Supabase DB types)
+export interface ScrapeJobRow {
+  id: string;
+  name: string;
+  status: string;
+  scrape_type: string;
+  crawl_depth: number;
+  keywords: string[] | null;
+  total_urls: number;
+  completed_urls: number;
+  failed_urls: number;
+  total_results: number;
+  error_message: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  created_at: string;
+  updated_at: string;
+  // Compat with old DbScrapeJobWithCreator usage
+  users?: null;
+}
 
-const withTimeout = <T,>(promiseLike: PromiseLike<T>, ms: number): Promise<T> => {
-  const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error('Timeout')), ms)
-  );
-  return Promise.race([Promise.resolve(promiseLike), timeout]);
-};
+// Normalize camelCase Drizzle response to snake_case for component compatibility
+function normalize(row: Record<string, unknown>): ScrapeJobRow {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    status: (row.status ?? 'pending') as string,
+    scrape_type: (row.scrapeType ?? row.scrape_type ?? 'links') as string,
+    crawl_depth: (row.crawlDepth ?? row.crawl_depth ?? 1) as number,
+    keywords: row.keywords as string[] | null,
+    total_urls: (row.totalUrls ?? row.total_urls ?? 0) as number,
+    completed_urls: (row.completedUrls ?? row.completed_urls ?? 0) as number,
+    failed_urls: (row.failedUrls ?? row.failed_urls ?? 0) as number,
+    total_results: (row.totalResults ?? row.total_results ?? 0) as number,
+    error_message: (row.errorMessage ?? row.error_message ?? null) as string | null,
+    started_at: (row.startedAt ?? row.started_at ?? null) as string | null,
+    finished_at: (row.finishedAt ?? row.finished_at ?? null) as string | null,
+    created_at: (row.createdAt ?? row.created_at ?? '') as string,
+    updated_at: (row.updatedAt ?? row.updated_at ?? '') as string,
+    users: null,
+  };
+}
 
 export function useSupabaseScrapeJobs() {
-  const [jobs, setJobs] = useState<DbScrapeJobWithCreator[]>([]);
+  const [jobs, setJobs] = useState<ScrapeJobRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
   const fetchInProgressRef = useRef(false);
   const pendingRefetchRef = useRef(false);
-
-  const supabase = getSupabaseClient();
 
   const fetchJobs = useCallback(async (showLoading = true) => {
     if (fetchInProgressRef.current) {
@@ -35,24 +64,19 @@ export function useSupabaseScrapeJobs() {
     setError(null);
 
     try {
-      const result = await withTimeout(
-        supabase
-          .from('scrape_jobs')
-          .select(`*, users:created_by (id, first_name, last_name, email)`)
-          .order('created_at', { ascending: false }),
-        FETCH_TIMEOUT
-      ) as { data: DbScrapeJobWithCreator[] | null; error: { message: string } | null };
-
+      const res = await fetch('/api/scraper/jobs');
       if (!mountedRef.current) return;
-      if (result.error) {
-        setError(result.error.message);
+
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || 'Erreur de chargement');
       } else {
-        setJobs(result.data as DbScrapeJobWithCreator[]);
+        const data: Record<string, unknown>[] = await res.json();
+        setJobs(data.map(normalize));
       }
     } catch (err: unknown) {
       if (!mountedRef.current) return;
-      const msg = err instanceof Error ? err.message : 'Erreur de connexion';
-      setError(msg === 'Timeout' ? 'Délai de connexion dépassé' : msg);
+      setError(err instanceof Error ? err.message : 'Erreur de connexion');
     } finally {
       if (mountedRef.current) setIsLoading(false);
       fetchInProgressRef.current = false;
@@ -61,7 +85,7 @@ export function useSupabaseScrapeJobs() {
         fetchJobs(false);
       }
     }
-  }, [supabase]);
+  }, []);
 
   const retry = useCallback(() => fetchJobs(true), [fetchJobs]);
 
@@ -71,47 +95,49 @@ export function useSupabaseScrapeJobs() {
     return () => { mountedRef.current = false; };
   }, [fetchJobs]);
 
-  // Realtime
-  useEffect(() => {
-    const channel = supabase
-      .channel('scrape-jobs-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'scrape_jobs' }, () => {
-        fetchJobs(false);
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [supabase, fetchJobs]);
-
-  const addJob = async (data: Omit<DbScrapeJobInsert, 'id' | 'created_at' | 'updated_at'>) => {
+  const addJob = async (data: Omit<ScrapeJobRow, 'id' | 'created_at' | 'updated_at' | 'users'>) => {
     setError(null);
     try {
-      const result = await withTimeout(
-        supabase.from('scrape_jobs').insert(data).select(`*, users:created_by (id, first_name, last_name, email)`).single(),
-        FETCH_TIMEOUT
-      ) as { data: DbScrapeJobWithCreator | null; error: { message: string } | null };
+      const res = await fetch('/api/scraper/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
 
-      if (result.error) { setError(result.error.message); return null; }
-      logActivity({ userId: data.created_by || null, action: 'create', entityType: 'scrape_job', entityId: result.data?.id || null, newData: data as Record<string, unknown> });
+      if (!res.ok) {
+        const err = await res.json();
+        setError(err.error || 'Erreur lors de la création');
+        return null;
+      }
+
+      const created = await res.json();
       fetchJobs(false);
-      return result.data;
-    } catch (err) {
-      setError("Erreur lors de la création");
+      return normalize(created);
+    } catch {
+      setError('Erreur lors de la création');
       return null;
     }
   };
 
-  const updateJob = async (id: string, data: DbScrapeJobUpdate) => {
+  const updateJob = async (id: string, data: Partial<ScrapeJobRow>) => {
     setError(null);
     try {
-      const result = await withTimeout(
-        supabase.from('scrape_jobs').update(data).eq('id', id).select(`*, users:created_by (id, first_name, last_name, email)`).single(),
-        FETCH_TIMEOUT
-      ) as { data: DbScrapeJobWithCreator | null; error: { message: string } | null };
+      const res = await fetch(`/api/scraper/jobs/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
 
-      if (result.error) { setError(result.error.message); return null; }
+      if (!res.ok) {
+        const err = await res.json();
+        setError(err.error || 'Erreur lors de la mise à jour');
+        return null;
+      }
+
+      const updated = await res.json();
       fetchJobs(false);
-      return result.data;
-    } catch (err) {
+      return normalize(updated);
+    } catch {
       setError('Erreur lors de la mise à jour');
       return null;
     }
@@ -120,16 +146,17 @@ export function useSupabaseScrapeJobs() {
   const deleteJob = async (id: string) => {
     setError(null);
     try {
-      const result = await withTimeout(
-        supabase.from('scrape_jobs').delete().eq('id', id),
-        FETCH_TIMEOUT
-      ) as { error: { message: string } | null };
+      const res = await fetch(`/api/scraper/jobs/${id}`, { method: 'DELETE' });
 
-      if (result.error) { setError(result.error.message); return false; }
-      logActivity({ userId: null, action: 'delete', entityType: 'scrape_job', entityId: id });
+      if (!res.ok) {
+        const err = await res.json();
+        setError(err.error || 'Erreur lors de la suppression');
+        return false;
+      }
+
       fetchJobs(false);
       return true;
-    } catch (err) {
+    } catch {
       setError('Erreur lors de la suppression');
       return false;
     }

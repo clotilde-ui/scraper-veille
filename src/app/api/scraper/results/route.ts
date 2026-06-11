@@ -1,16 +1,10 @@
-import { createClient } from '@/lib/supabase/server';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/db';
+import { scrapeResults } from '@/lib/db/schema';
+import { eq, and, desc, sql } from 'drizzle-orm';
 
-// GET - Récupérer les résultats d'un job avec pagination
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    // Auth check
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
-    }
-
     const { searchParams } = new URL(request.url);
     const jobId = searchParams.get('jobId');
     const resultType = searchParams.get('type');
@@ -22,30 +16,36 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'jobId requis' }, { status: 400 });
     }
 
-    // Construire la requête
-    let query = supabase
-      .from('scrape_results')
-      .select('*', { count: 'exact' })
-      .eq('job_id', jobId)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+    const conditions = resultType
+      ? and(eq(scrapeResults.jobId, jobId), eq(scrapeResults.resultType, resultType))
+      : eq(scrapeResults.jobId, jobId);
 
-    if (resultType) {
-      query = query.eq('result_type', resultType);
-    }
+    const [countResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(scrapeResults)
+      .where(conditions);
 
-    const { data, error, count } = await query;
+    const total = Number(countResult?.count) || 0;
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    const rows = await db
+      .select()
+      .from(scrapeResults)
+      .where(conditions)
+      .orderBy(desc(scrapeResults.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    const results = rows.map(r => ({
+      ...r,
+      metadata: r.metadata ? (() => { try { return JSON.parse(r.metadata as string); } catch { return null; } })() : null,
+    }));
 
     return NextResponse.json({
-      results: data || [],
-      total: count || 0,
+      results,
+      total,
       page,
       limit,
-      totalPages: Math.ceil((count || 0) / limit),
+      totalPages: Math.ceil(total / limit),
     });
   } catch (error) {
     console.error('Erreur API results:', error);
