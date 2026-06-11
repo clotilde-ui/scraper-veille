@@ -37,7 +37,7 @@ export function ScraperJobCard({ job, onClick, onDelete }: ScraperJobCardProps) 
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold text-slate-900 dark:text-white truncate">{job.name}</h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            {job.users ? `${job.users.first_name} ${job.users.last_name}` : '—'} · {formatDate(job.created_at)}
+            {formatDate(job.created_at)}
           </p>
         </div>
         <div className="flex items-center gap-2 ml-2">
