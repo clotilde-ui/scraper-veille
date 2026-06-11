@@ -218,6 +218,15 @@ export async function POST(request: Request) {
     }
 
     if (hasPdfs) {
+      // When include keywords are set, only return files whose URL or link text matches a keyword
+      const includeKws: string[] = Array.isArray(keywords) ? keywords : [];
+      const filterByKeywords = includeKws.length
+        ? (fileUrl: string, text: string) => {
+            const searchable = `${fileUrl} ${text}`.toLowerCase();
+            return includeKws.some(kw => searchable.includes(kw.toLowerCase()));
+          }
+        : () => true;
+
       $('a[href]').each((_, el) => {
         const href = $(el).attr('href');
         if (!href) return;
@@ -228,10 +237,12 @@ export async function POST(request: Request) {
         const isDownload = DOWNLOAD_EXTENSIONS.some(ext => lowerHref.includes(ext));
         if (isPdf) {
           const linkText = $(el).text().trim().substring(0, 200);
+          if (!filterByKeywords(resolved, linkText)) return;
           addResult('pdf', resolved, linkText || null, null, { extension: '.pdf' });
         } else if (isDownload) {
           const ext = DOWNLOAD_EXTENSIONS.find(e => lowerHref.includes(e)) || '';
           const linkText = $(el).text().trim().substring(0, 200);
+          if (!filterByKeywords(resolved, linkText)) return;
           addResult('download', resolved, linkText || null, null, { extension: ext });
         }
       });
