@@ -118,7 +118,6 @@ export default function ScrapeJobDetailPage() {
             {job.keywords && job.keywords.length > 0 && (
               <span>{job.keywords.length} mot{job.keywords.length > 1 ? 's' : ''}-clé{job.keywords.length > 1 ? 's' : ''}</span>
             )}
-            <span>{'—'}</span>
           </div>
         </div>
         {canStart && (
