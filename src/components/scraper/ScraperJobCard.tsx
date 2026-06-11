@@ -63,10 +63,10 @@ export function ScraperJobCard({ job, onClick, onDelete }: ScraperJobCardProps) 
           <Globe className="w-3.5 h-3.5" />
           Profondeur {job.crawl_depth}
         </span>
-        {job.keywords && job.keywords.length > 0 && (
+        {job.keywords && job.keywords.include.length > 0 && (
           <span className="flex items-center gap-1 text-xs">
             <FileText className="w-3.5 h-3.5" />
-            {job.keywords.length} mot{job.keywords.length > 1 ? 's' : ''}-clé{job.keywords.length > 1 ? 's' : ''}
+            {job.keywords.include.length} mot{job.keywords.include.length > 1 ? 's' : ''}-clé{job.keywords.include.length > 1 ? 's' : ''}
           </span>
         )}
       </div>
