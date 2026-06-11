@@ -3,10 +3,10 @@
 import { Clock, Globe, FileText, AlertTriangle, Play, Trash2 } from 'lucide-react';
 import { JobStatusBadge } from './ScraperStatusBadge';
 import { SCRAPE_TYPES } from '@/types';
-import type { DbScrapeJobWithCreator } from '@/types/supabase';
+import type { ScrapeJobRow } from '@/hooks/useSupabaseScrapeJobs';
 
 interface ScraperJobCardProps {
-  job: DbScrapeJobWithCreator;
+  job: ScrapeJobRow;
   onClick: () => void;
   onDelete: (e: React.MouseEvent) => void;
 }

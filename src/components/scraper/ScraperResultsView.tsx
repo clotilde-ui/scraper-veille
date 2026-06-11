@@ -5,11 +5,11 @@ import { ExternalLink, Copy, Check } from 'lucide-react';
 import { ResultTypeBadge } from './ScraperStatusBadge';
 import { Pagination } from '@/components/Pagination';
 import { SCRAPE_RESULT_TYPES } from '@/types';
-import type { DbScrapeResult } from '@/types/supabase';
+import type { ScrapeResultRow } from '@/hooks/useSupabaseScrapeResults';
 import type { ScrapeResultType } from '@/types';
 
 interface ScraperResultsViewProps {
-  results: DbScrapeResult[];
+  results: ScrapeResultRow[];
   isLoading: boolean;
 }
 

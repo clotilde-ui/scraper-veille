@@ -4,15 +4,15 @@ import { useState } from 'react';
 import { ArrowUpDown, Trash2 } from 'lucide-react';
 import { JobStatusBadge } from './ScraperStatusBadge';
 import { SCRAPE_TYPES } from '@/types';
-import type { DbScrapeJobWithCreator } from '@/types/supabase';
+import type { ScrapeJobRow } from '@/hooks/useSupabaseScrapeJobs';
 
 type SortField = 'name' | 'status' | 'scrape_type' | 'total_urls' | 'total_results' | 'created_at';
 type SortDir = 'asc' | 'desc';
 
 interface ScraperJobListProps {
-  jobs: DbScrapeJobWithCreator[];
-  onSelect: (job: DbScrapeJobWithCreator) => void;
-  onDelete: (job: DbScrapeJobWithCreator) => void;
+  jobs: ScrapeJobRow[];
+  onSelect: (job: ScrapeJobRow) => void;
+  onDelete: (job: ScrapeJobRow) => void;
 }
 
 export function ScraperJobList({ jobs, onSelect, onDelete }: ScraperJobListProps) {

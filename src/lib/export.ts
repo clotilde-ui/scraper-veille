@@ -1,5 +1,5 @@
 import { SCRAPE_RESULT_TYPES } from '@/types';
-import type { DbScrapeResult } from '@/types/supabase';
+import type { ScrapeResultRow } from '@/hooks/useSupabaseScrapeResults';
 
 interface CsvColumn<T> {
   header: string;
@@ -13,7 +13,7 @@ function escapeCsvField(value: string): string {
   return value;
 }
 
-const SCRAPE_RESULT_CSV_COLUMNS: CsvColumn<DbScrapeResult>[] = [
+const SCRAPE_RESULT_CSV_COLUMNS: CsvColumn<ScrapeResultRow>[] = [
   { header: 'URL Source', accessor: (r) => r.source_url || '' },
   { header: 'Type', accessor: (r) => SCRAPE_RESULT_TYPES.find(t => t.value === r.result_type)?.label || r.result_type },
   { header: 'Valeur', accessor: (r) => r.value },
@@ -22,7 +22,7 @@ const SCRAPE_RESULT_CSV_COLUMNS: CsvColumn<DbScrapeResult>[] = [
   { header: 'Trouvé le', accessor: (r) => new Date(r.created_at).toLocaleDateString('fr-FR') },
 ];
 
-export function exportScrapeResultsCsv(results: DbScrapeResult[], filename = 'scraping-resultats.csv') {
+export function exportScrapeResultsCsv(results: ScrapeResultRow[], filename = 'scraping-resultats.csv') {
   const separator = ';';
   const BOM = '﻿';
 
