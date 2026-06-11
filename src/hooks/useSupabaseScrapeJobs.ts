@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 
+// Type mirrors what components expect (snake_case, matching old Supabase DB types)
 export interface ScrapeJobRow {
   id: string;
   name: string;
@@ -18,6 +19,30 @@ export interface ScrapeJobRow {
   finished_at: string | null;
   created_at: string;
   updated_at: string;
+  // Compat with old DbScrapeJobWithCreator usage
+  users?: null;
+}
+
+// Normalize camelCase Drizzle response to snake_case for component compatibility
+function normalize(row: Record<string, unknown>): ScrapeJobRow {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    status: (row.status ?? 'pending') as string,
+    scrape_type: (row.scrapeType ?? row.scrape_type ?? 'links') as string,
+    crawl_depth: (row.crawlDepth ?? row.crawl_depth ?? 1) as number,
+    keywords: row.keywords as string[] | null,
+    total_urls: (row.totalUrls ?? row.total_urls ?? 0) as number,
+    completed_urls: (row.completedUrls ?? row.completed_urls ?? 0) as number,
+    failed_urls: (row.failedUrls ?? row.failed_urls ?? 0) as number,
+    total_results: (row.totalResults ?? row.total_results ?? 0) as number,
+    error_message: (row.errorMessage ?? row.error_message ?? null) as string | null,
+    started_at: (row.startedAt ?? row.started_at ?? null) as string | null,
+    finished_at: (row.finishedAt ?? row.finished_at ?? null) as string | null,
+    created_at: (row.createdAt ?? row.created_at ?? '') as string,
+    updated_at: (row.updatedAt ?? row.updated_at ?? '') as string,
+    users: null,
+  };
 }
 
 export function useSupabaseScrapeJobs() {
@@ -46,8 +71,8 @@ export function useSupabaseScrapeJobs() {
         const data = await res.json();
         setError(data.error || 'Erreur de chargement');
       } else {
-        const data: ScrapeJobRow[] = await res.json();
-        setJobs(data);
+        const data: Record<string, unknown>[] = await res.json();
+        setJobs(data.map(normalize));
       }
     } catch (err: unknown) {
       if (!mountedRef.current) return;
@@ -70,7 +95,7 @@ export function useSupabaseScrapeJobs() {
     return () => { mountedRef.current = false; };
   }, [fetchJobs]);
 
-  const addJob = async (data: Omit<ScrapeJobRow, 'id' | 'created_at' | 'updated_at'>) => {
+  const addJob = async (data: Omit<ScrapeJobRow, 'id' | 'created_at' | 'updated_at' | 'users'>) => {
     setError(null);
     try {
       const res = await fetch('/api/scraper/jobs', {
@@ -85,10 +110,10 @@ export function useSupabaseScrapeJobs() {
         return null;
       }
 
-      const created: ScrapeJobRow = await res.json();
+      const created = await res.json();
       fetchJobs(false);
-      return created;
-    } catch (err) {
+      return normalize(created);
+    } catch {
       setError('Erreur lors de la création');
       return null;
     }
@@ -109,10 +134,10 @@ export function useSupabaseScrapeJobs() {
         return null;
       }
 
-      const updated: ScrapeJobRow = await res.json();
+      const updated = await res.json();
       fetchJobs(false);
-      return updated;
-    } catch (err) {
+      return normalize(updated);
+    } catch {
       setError('Erreur lors de la mise à jour');
       return null;
     }
@@ -131,7 +156,7 @@ export function useSupabaseScrapeJobs() {
 
       fetchJobs(false);
       return true;
-    } catch (err) {
+    } catch {
       setError('Erreur lors de la suppression');
       return false;
     }
