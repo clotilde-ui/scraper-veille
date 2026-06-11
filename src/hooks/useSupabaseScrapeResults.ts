@@ -15,6 +15,21 @@ export interface ScrapeResultRow {
   created_at: string;
 }
 
+function normalize(row: Record<string, unknown>): ScrapeResultRow {
+  return {
+    id: row.id as string,
+    job_id: (row.jobId ?? row.job_id) as string,
+    url_id: (row.urlId ?? row.url_id) as string,
+    source_url: (row.sourceUrl ?? row.source_url ?? null) as string | null,
+    result_type: (row.resultType ?? row.result_type) as string,
+    value: row.value as string,
+    label: (row.label ?? null) as string | null,
+    context: (row.context ?? null) as string | null,
+    metadata: (row.metadata ?? null) as Record<string, unknown> | null,
+    created_at: (row.createdAt ?? row.created_at ?? '') as string,
+  };
+}
+
 export function useSupabaseScrapeResults(jobId: string, filterType?: string) {
   const [results, setResults] = useState<ScrapeResultRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,7 +53,8 @@ export function useSupabaseScrapeResults(jobId: string, filterType?: string) {
         setError(data.error || 'Erreur de chargement');
       } else {
         const data = await res.json();
-        setResults(data.results || []);
+        const rows: Record<string, unknown>[] = data.results || [];
+        setResults(rows.map(normalize));
       }
     } catch (err: unknown) {
       if (!mountedRef.current) return;

@@ -2,10 +2,10 @@
 
 import { Download } from 'lucide-react';
 import { exportScrapeResultsCsv } from '@/lib/export';
-import type { DbScrapeResult } from '@/types/supabase';
+import type { ScrapeResultRow } from '@/hooks/useSupabaseScrapeResults';
 
 interface ScraperResultExportProps {
-  results: DbScrapeResult[];
+  results: ScrapeResultRow[];
   jobName: string;
 }
 

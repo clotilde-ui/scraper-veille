@@ -2,11 +2,11 @@
 
 import { Pause, Play, X, Loader2, Globe, Zap } from 'lucide-react';
 import { JobStatusBadge } from './ScraperStatusBadge';
-import type { DbScrapeJobWithCreator } from '@/types/supabase';
+import type { ScrapeJobRow } from '@/hooks/useSupabaseScrapeJobs';
 import type { ScrapeJobStatus } from '@/types';
 
 interface ScraperProgressPanelProps {
-  job: DbScrapeJobWithCreator;
+  job: ScrapeJobRow;
   currentUrls: string[];
   isPaused: boolean;
   onPause: () => void;

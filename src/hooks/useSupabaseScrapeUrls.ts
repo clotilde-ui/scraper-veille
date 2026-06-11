@@ -16,6 +16,22 @@ export interface ScrapeUrlRow {
   created_at: string;
 }
 
+function normalize(row: Record<string, unknown>): ScrapeUrlRow {
+  return {
+    id: row.id as string,
+    job_id: (row.jobId ?? row.job_id) as string,
+    url: row.url as string,
+    status: row.status as string,
+    depth: (row.depth ?? 0) as number,
+    parent_url_id: (row.parentUrlId ?? row.parent_url_id ?? null) as string | null,
+    http_status: (row.httpStatus ?? row.http_status ?? null) as number | null,
+    error_message: (row.errorMessage ?? row.error_message ?? null) as string | null,
+    page_title: (row.pageTitle ?? row.page_title ?? null) as string | null,
+    scraped_at: (row.scrapedAt ?? row.scraped_at ?? null) as string | null,
+    created_at: (row.createdAt ?? row.created_at ?? '') as string,
+  };
+}
+
 export function useSupabaseScrapeUrls(jobId: string) {
   const [urls, setUrls] = useState<ScrapeUrlRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,8 +51,8 @@ export function useSupabaseScrapeUrls(jobId: string) {
         const data = await res.json();
         setError(data.error || 'Erreur de chargement');
       } else {
-        const data: ScrapeUrlRow[] = await res.json();
-        setUrls(data);
+        const data: Record<string, unknown>[] = await res.json();
+        setUrls(data.map(normalize));
       }
     } catch (err: unknown) {
       if (!mountedRef.current) return;
@@ -66,8 +82,8 @@ export function useSupabaseScrapeUrls(jobId: string) {
         return [];
       }
 
-      const data: ScrapeUrlRow[] = await res.json();
-      return data;
+      const data: Record<string, unknown>[] = await res.json();
+      return data.map(normalize);
     } catch {
       return [];
     }

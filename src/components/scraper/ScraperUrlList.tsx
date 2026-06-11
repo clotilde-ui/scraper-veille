@@ -2,15 +2,15 @@
 
 import { ExternalLink } from 'lucide-react';
 import { UrlStatusBadge } from './ScraperStatusBadge';
-import type { DbScrapeUrl } from '@/types/supabase';
+import type { ScrapeUrlRow } from '@/hooks/useSupabaseScrapeUrls';
 import type { ScrapeUrlStatus } from '@/types';
 
 interface ScraperUrlListProps {
-  urls: DbScrapeUrl[];
+  urls: ScrapeUrlRow[];
 }
 
 export function ScraperUrlList({ urls }: ScraperUrlListProps) {
-  const grouped = urls.reduce<Record<number, DbScrapeUrl[]>>((acc, url) => {
+  const grouped = urls.reduce<Record<number, ScrapeUrlRow[]>>((acc, url) => {
     const d = url.depth;
     if (!acc[d]) acc[d] = [];
     acc[d].push(url);
