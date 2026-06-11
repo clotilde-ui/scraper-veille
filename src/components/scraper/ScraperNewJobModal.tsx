@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { X, Upload, ChevronRight, ChevronLeft, FileText, Globe, Search, Settings2, Check } from 'lucide-react';
+import { X, Upload, ChevronRight, ChevronLeft, FileText, Globe, Search, Check } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { SCRAPE_TYPES } from '@/types';
 import type { ScrapeType } from '@/types';
@@ -9,7 +9,7 @@ import type { ScrapeType } from '@/types';
 interface NewJobConfig {
   name: string;
   urls: string[];
-  scrapeType: ScrapeType;
+  scrapeType: string; // JSON array of ScrapeType[]
   crawlDepth: number;
   keywords: string[];
 }
@@ -27,7 +27,7 @@ export function ScraperNewJobModal({ isOpen, onClose, onSubmit }: ScraperNewJobM
   const [name, setName] = useState('');
   const [urlsText, setUrlsText] = useState('');
   const [csvFile, setCsvFile] = useState<File | null>(null);
-  const [scrapeType, setScrapeType] = useState<ScrapeType>('pdfs');
+  const [scrapeTypes, setScrapeTypes] = useState<ScrapeType[]>(['pdfs']);
   const [crawlDepth, setCrawlDepth] = useState(1);
   const [keywordsText, setKeywordsText] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -68,21 +68,29 @@ export function ScraperNewJobModal({ isOpen, onClose, onSubmit }: ScraperNewJobM
     }
   };
 
+  const toggleType = (t: ScrapeType) => {
+    setScrapeTypes(prev =>
+      prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]
+    );
+  };
+
+  const needsKeywords = scrapeTypes.includes('keywords');
+
   const handleSubmit = () => {
     if (parsedUrls.length === 0 || !name.trim()) return;
     onSubmit({
       name: name.trim(),
       urls: parsedUrls,
-      scrapeType,
+      scrapeType: JSON.stringify(scrapeTypes),
       crawlDepth,
-      keywords: (scrapeType === 'keywords' || scrapeType === 'all') ? parsedKeywords : [],
+      keywords: needsKeywords ? parsedKeywords : [],
     });
     // Reset
     setStep(1);
     setName('');
     setUrlsText('');
     setCsvFile(null);
-    setScrapeType('pdfs');
+    setScrapeTypes(['pdfs']);
     setCrawlDepth(1);
     setKeywordsText('');
     onClose();
@@ -91,7 +99,8 @@ export function ScraperNewJobModal({ isOpen, onClose, onSubmit }: ScraperNewJobM
   const canNext = (s: Step) => {
     if (s === 1) return parsedUrls.length > 0 && name.trim().length > 0;
     if (s === 2) {
-      if ((scrapeType === 'keywords' || scrapeType === 'all') && parsedKeywords.length === 0) return false;
+      if (scrapeTypes.length === 0) return false;
+      if (needsKeywords && parsedKeywords.length === 0) return false;
       return true;
     }
     return true;
@@ -186,30 +195,38 @@ export function ScraperNewJobModal({ isOpen, onClose, onSubmit }: ScraperNewJobM
           {step === 2 && (
             <>
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Type de scraping</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Type de scraping
+                  <span className="text-slate-400 font-normal ml-2">sélection multiple</span>
+                </label>
                 <div className="grid grid-cols-2 gap-3">
-                  {SCRAPE_TYPES.map(t => (
-                    <button
-                      key={t.value}
-                      onClick={() => setScrapeType(t.value)}
-                      className={`flex items-start gap-3 p-3 rounded-xl border-2 transition-all text-left ${
-                        scrapeType === t.value
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                          : 'border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'
-                      }`}
-                    >
-                      <div className={`p-1.5 rounded-lg ${t.bgColor}`}>
-                        {t.value === 'links' && <Globe className={`w-4 h-4 ${t.color}`} />}
-                        {t.value === 'pdfs' && <FileText className={`w-4 h-4 ${t.color}`} />}
-                        {t.value === 'keywords' && <Search className={`w-4 h-4 ${t.color}`} />}
-                        {t.value === 'all' && <Settings2 className={`w-4 h-4 ${t.color}`} />}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-slate-900 dark:text-white">{t.label}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">{t.description}</p>
-                      </div>
-                    </button>
-                  ))}
+                  {SCRAPE_TYPES.filter(t => t.value !== 'all').map(t => {
+                    const selected = scrapeTypes.includes(t.value);
+                    return (
+                      <button
+                        key={t.value}
+                        onClick={() => toggleType(t.value)}
+                        className={`flex items-start gap-3 p-3 rounded-xl border-2 transition-all text-left ${
+                          selected
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            : 'border-slate-200 dark:border-slate-600 hover:border-slate-300 dark:hover:border-slate-500'
+                        }`}
+                      >
+                        <div className="flex flex-col items-center gap-1">
+                          <div className={`p-1.5 rounded-lg ${t.bgColor}`}>
+                            {t.value === 'links' && <Globe className={`w-4 h-4 ${t.color}`} />}
+                            {t.value === 'pdfs' && <FileText className={`w-4 h-4 ${t.color}`} />}
+                            {t.value === 'keywords' && <Search className={`w-4 h-4 ${t.color}`} />}
+                          </div>
+                          {selected && <Check className="w-3 h-3 text-blue-500" />}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-slate-900 dark:text-white">{t.label}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">{t.description}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -237,7 +254,7 @@ export function ScraperNewJobModal({ isOpen, onClose, onSubmit }: ScraperNewJobM
                 </div>
               </div>
 
-              {(scrapeType === 'keywords' || scrapeType === 'all') && (
+              {needsKeywords && (
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Mots-clés (séparés par des virgules)
@@ -269,9 +286,9 @@ export function ScraperNewJobModal({ isOpen, onClose, onSubmit }: ScraperNewJobM
                   <span className="font-medium text-slate-900 dark:text-white">{parsedUrls.length}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-500 dark:text-slate-400">Type</span>
+                  <span className="text-slate-500 dark:text-slate-400">Types</span>
                   <span className="font-medium text-slate-900 dark:text-white">
-                    {SCRAPE_TYPES.find(t => t.value === scrapeType)?.label}
+                    {scrapeTypes.map(v => SCRAPE_TYPES.find(t => t.value === v)?.label).join(', ')}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
