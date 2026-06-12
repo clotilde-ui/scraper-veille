@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Play, Globe, FileText, Link2, Download } from 'lucide-react';
+import { ArrowLeft, Play, Globe, FileText, Link2, Download, Table2 } from 'lucide-react';
 import { useSupabaseScrapeJobs, parseKeywords } from '@/hooks/useSupabaseScrapeJobs';
 import { useSupabaseScrapeUrls } from '@/hooks/useSupabaseScrapeUrls';
 import { useSupabaseScrapeResults } from '@/hooks/useSupabaseScrapeResults';
@@ -28,8 +28,61 @@ export default function ScrapeJobDetailPage() {
   const orchestrator = useScrapeOrchestrator();
 
   const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [webhookUrl, setWebhookUrl] = useState('');
+  const [webhookSaving, setWebhookSaving] = useState(false);
+  const [sheetsSending, setSheetsSending] = useState(false);
+  const [sheetsSendStatus, setSheetsSendStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const prevIsRunning = useRef(false);
 
   const job = jobs.find(j => j.id === jobId);
+
+  // Sync webhook URL from job data
+  useEffect(() => {
+    if (job?.google_sheets_webhook_url) setWebhookUrl(job.google_sheets_webhook_url);
+  }, [job?.google_sheets_webhook_url]);
+
+  const sendToGoogleSheets = useCallback(async (url?: string) => {
+    const targetUrl = url ?? webhookUrl;
+    if (!targetUrl) return;
+    setSheetsSending(true);
+    setSheetsSendStatus('idle');
+    try {
+      const res = await fetch('/api/scraper/google-sheets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId, webhookUrl: targetUrl }),
+      });
+      setSheetsSendStatus(res.ok ? 'success' : 'error');
+    } catch {
+      setSheetsSendStatus('error');
+    } finally {
+      setSheetsSending(false);
+      setTimeout(() => setSheetsSendStatus('idle'), 4000);
+    }
+  }, [jobId, webhookUrl]);
+
+  const saveWebhookUrl = useCallback(async (url: string) => {
+    setWebhookSaving(true);
+    try {
+      await fetch(`/api/scraper/jobs/${jobId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ googleSheetsWebhookUrl: url }),
+      });
+      await fetchJobs(false);
+    } finally {
+      setWebhookSaving(false);
+    }
+  }, [jobId, fetchJobs]);
+
+  // Auto-send when scraping completes
+  useEffect(() => {
+    if (prevIsRunning.current && !orchestrator.isRunning && job?.status === 'completed') {
+      const url = webhookUrl || job?.google_sheets_webhook_url || '';
+      if (url) sendToGoogleSheets(url);
+    }
+    prevIsRunning.current = orchestrator.isRunning;
+  }, [orchestrator.isRunning, job?.status, job?.google_sheets_webhook_url, webhookUrl, sendToGoogleSheets]);
 
   // Polling de secours pendant le scraping (realtime pas toujours fiable sur Vercel)
   const isScrapingActive = orchestrator.isRunning || job?.status === 'running' || job?.status === 'paused';
@@ -236,20 +289,104 @@ export default function ScrapeJobDetailPage() {
       {activeTab === 'urls' && <ScraperUrlList urls={urls} />}
 
       {activeTab === 'results' && (
-        <ScraperResultsView results={results} isLoading={resultsLoading} />
+        <ScraperResultsView
+          results={results}
+          isLoading={resultsLoading}
+          webhookUrl={webhookUrl || job.google_sheets_webhook_url || undefined}
+          onSendToSheets={() => sendToGoogleSheets()}
+          sheetsSending={sheetsSending}
+          sheetsSendStatus={sheetsSendStatus}
+        />
       )}
 
       {activeTab === 'export' && (
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 space-y-4">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Exporter les résultats</h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Exportez tous les résultats de ce job en format CSV. Le fichier contiendra la page où le mot-clé a été trouvé, le type, la valeur, le label et le contexte.
-          </p>
-          <div className="flex items-center gap-4">
-            <ScraperResultExport results={results} jobName={job.name} />
-            <span className="text-sm text-slate-500 dark:text-slate-400">
-              {results.length} résultat{results.length !== 1 ? 's' : ''} à exporter
-            </span>
+        <div className="space-y-4">
+          {/* CSV export */}
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Exporter en CSV</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Exportez tous les résultats de ce job en format CSV. Le fichier contiendra la page où le mot-clé a été trouvé, le type, la valeur, le label et le contexte.
+            </p>
+            <div className="flex items-center gap-4">
+              <ScraperResultExport results={results} jobName={job.name} />
+              <span className="text-sm text-slate-500 dark:text-slate-400">
+                {results.length} résultat{results.length !== 1 ? 's' : ''} à exporter
+              </span>
+            </div>
+          </div>
+
+          {/* Google Sheets webhook */}
+          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <Table2 className="w-5 h-5 text-emerald-500" />
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Google Sheets via Apps Script</h3>
+            </div>
+            <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-4 text-sm text-slate-600 dark:text-slate-400 space-y-2">
+              <p className="font-medium text-slate-700 dark:text-slate-300">Comment configurer le webhook Google Apps Script :</p>
+              <ol className="list-decimal list-inside space-y-1">
+                <li>Dans Google Sheets, ouvre <strong>Extensions → Apps Script</strong></li>
+                <li>Colle le script ci-dessous dans l&apos;éditeur et déploie-le en tant que <strong>Web App</strong> (accès : Tout le monde)</li>
+                <li>Copie l&apos;URL de déploiement et colle-la ci-dessous</li>
+              </ol>
+              <details className="mt-2">
+                <summary className="cursor-pointer text-blue-600 dark:text-blue-400 hover:underline">Voir le script Apps Script</summary>
+                <pre className="mt-2 bg-slate-900 text-slate-100 rounded p-3 text-xs overflow-x-auto whitespace-pre-wrap">{`function doPost(e) {
+  const data = JSON.parse(e.postData.contents);
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(['Type', 'Valeur', 'Page trouvée', 'Label', 'Contexte', 'Job', 'Date envoi']);
+  }
+
+  data.results.forEach(r => {
+    sheet.appendRow([r.type, r.value, r.source_url, r.label, r.context, data.job.name, new Date().toISOString()]);
+  });
+
+  return ContentService.createTextOutput(JSON.stringify({ ok: true }))
+    .setMimeType(ContentService.MimeType.JSON);
+}`}</pre>
+              </details>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">URL du webhook Apps Script</label>
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  value={webhookUrl}
+                  onChange={e => setWebhookUrl(e.target.value)}
+                  placeholder="https://script.google.com/macros/s/..."
+                  className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-mono"
+                />
+                <button
+                  onClick={() => saveWebhookUrl(webhookUrl)}
+                  disabled={webhookSaving || !webhookUrl.trim()}
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                >
+                  {webhookSaving ? 'Sauvegarde...' : 'Sauvegarder'}
+                </button>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                L&apos;URL sera mémorisée pour ce job et l&apos;envoi sera automatique à la fin de chaque scraping.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => sendToGoogleSheets()}
+                disabled={sheetsSending || !webhookUrl.trim() || results.length === 0}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white text-sm font-medium rounded-lg hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <Table2 className="w-4 h-4" />
+                {sheetsSending ? 'Envoi...' : `Envoyer vers Google Sheets (${results.length})`}
+              </button>
+              {sheetsSendStatus === 'success' && (
+                <span className="text-sm text-emerald-600 dark:text-emerald-400 font-medium">Envoyé avec succès !</span>
+              )}
+              {sheetsSendStatus === 'error' && (
+                <span className="text-sm text-red-500 dark:text-red-400 font-medium">Erreur lors de l&apos;envoi. Vérifie l&apos;URL du webhook.</span>
+              )}
+            </div>
           </div>
         </div>
       )}

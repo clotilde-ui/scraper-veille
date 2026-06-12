@@ -8,3 +8,6 @@ const client = createClient({
 });
 
 export const db = drizzle(client, { schema });
+
+// Auto-migration: add columns introduced after initial schema
+client.execute('ALTER TABLE scrape_jobs ADD COLUMN google_sheets_webhook_url TEXT').catch(() => {});

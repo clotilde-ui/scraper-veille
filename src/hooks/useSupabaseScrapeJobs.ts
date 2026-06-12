@@ -30,6 +30,7 @@ export interface ScrapeJobRow {
   error_message: string | null;
   started_at: string | null;
   finished_at: string | null;
+  google_sheets_webhook_url: string | null;
   created_at: string;
   updated_at: string;
   // Compat with old DbScrapeJobWithCreator usage
@@ -52,6 +53,7 @@ function normalize(row: Record<string, unknown>): ScrapeJobRow {
     error_message: (row.errorMessage ?? row.error_message ?? null) as string | null,
     started_at: (row.startedAt ?? row.started_at ?? null) as string | null,
     finished_at: (row.finishedAt ?? row.finished_at ?? null) as string | null,
+    google_sheets_webhook_url: (row.googleSheetsWebhookUrl ?? row.google_sheets_webhook_url ?? null) as string | null,
     created_at: (row.createdAt ?? row.created_at ?? '') as string,
     updated_at: (row.updatedAt ?? row.updated_at ?? '') as string,
     users: null,
