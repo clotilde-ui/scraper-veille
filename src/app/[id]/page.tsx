@@ -321,33 +321,6 @@ export default function ScrapeJobDetailPage() {
               <Table2 className="w-5 h-5 text-emerald-500" />
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Google Sheets via Apps Script</h3>
             </div>
-            <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-4 text-sm text-slate-600 dark:text-slate-400 space-y-2">
-              <p className="font-medium text-slate-700 dark:text-slate-300">Comment configurer le webhook Google Apps Script :</p>
-              <ol className="list-decimal list-inside space-y-1">
-                <li>Dans Google Sheets, ouvre <strong>Extensions → Apps Script</strong></li>
-                <li>Colle le script ci-dessous dans l&apos;éditeur et déploie-le en tant que <strong>Web App</strong> (accès : Tout le monde)</li>
-                <li>Copie l&apos;URL de déploiement et colle-la ci-dessous</li>
-              </ol>
-              <details className="mt-2">
-                <summary className="cursor-pointer text-blue-600 dark:text-blue-400 hover:underline">Voir le script Apps Script</summary>
-                <pre className="mt-2 bg-slate-900 text-slate-100 rounded p-3 text-xs overflow-x-auto whitespace-pre-wrap">{`function doPost(e) {
-  const data = JSON.parse(e.postData.contents);
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-
-  if (sheet.getLastRow() === 0) {
-    sheet.appendRow(['Type', 'Valeur', 'Page trouvée', 'Label', 'Contexte', 'Job', 'Date envoi']);
-  }
-
-  data.results.forEach(r => {
-    sheet.appendRow([r.type, r.value, r.source_url, r.label, r.context, data.job.name, new Date().toISOString()]);
-  });
-
-  return ContentService.createTextOutput(JSON.stringify({ ok: true }))
-    .setMimeType(ContentService.MimeType.JSON);
-}`}</pre>
-              </details>
-            </div>
-
             <div className="space-y-2">
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">URL du webhook Apps Script</label>
               <div className="flex gap-2">
