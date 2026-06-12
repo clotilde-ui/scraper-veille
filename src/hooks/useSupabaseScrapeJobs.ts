@@ -30,7 +30,7 @@ export interface ScrapeJobRow {
   error_message: string | null;
   started_at: string | null;
   finished_at: string | null;
-  google_sheets_webhook_url: string | null;
+  google_sheets_webhook_url: string | null | undefined;
   created_at: string;
   updated_at: string;
   // Compat with old DbScrapeJobWithCreator usage
@@ -110,7 +110,7 @@ export function useSupabaseScrapeJobs() {
     return () => { mountedRef.current = false; };
   }, [fetchJobs]);
 
-  const addJob = async (data: Omit<ScrapeJobRow, 'id' | 'created_at' | 'updated_at' | 'users'>) => {
+  const addJob = async (data: Omit<ScrapeJobRow, 'id' | 'created_at' | 'updated_at' | 'users' | 'google_sheets_webhook_url'>) => {
     setError(null);
     try {
       const res = await fetch('/api/scraper/jobs', {
