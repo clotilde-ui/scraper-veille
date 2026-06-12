@@ -199,7 +199,7 @@ export default function ScrapeJobDetailPage() {
       )}
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 border-b border-slate-200 dark:border-slate-700">
+      <div className="flex items-center gap-1 border-b border-slate-200 dark:border-slate-700 overflow-x-auto scrollbar-none">
         {tabs.map(tab => {
           const Icon = tab.icon;
           return (
