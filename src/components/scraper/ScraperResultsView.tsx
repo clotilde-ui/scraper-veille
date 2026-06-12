@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { ExternalLink, Copy, Check } from 'lucide-react';
+import { ExternalLink, Copy, Check, Table2 } from 'lucide-react';
 import { ResultTypeBadge } from './ScraperStatusBadge';
 import { Pagination } from '@/components/Pagination';
 import { SCRAPE_RESULT_TYPES } from '@/types';
@@ -11,9 +11,14 @@ import type { ScrapeResultType } from '@/types';
 interface ScraperResultsViewProps {
   results: ScrapeResultRow[];
   isLoading: boolean;
+  jobId?: string;
+  webhookUrl?: string;
+  onSendToSheets?: () => void;
+  sheetsSending?: boolean;
+  sheetsSendStatus?: 'idle' | 'success' | 'error';
 }
 
-export function ScraperResultsView({ results, isLoading }: ScraperResultsViewProps) {
+export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToSheets, sheetsSending, sheetsSendStatus }: ScraperResultsViewProps) {
   const [activeTab, setActiveTab] = useState<ScrapeResultType | 'all'>('all');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -73,7 +78,8 @@ export function ScraperResultsView({ results, isLoading }: ScraperResultsViewPro
 
   return (
     <div className="space-y-4">
-      {/* Tabs */}
+      {/* Tabs + Google Sheets button */}
+      <div className="flex items-center gap-2 flex-wrap justify-between">
       <div className="flex items-center gap-2 flex-wrap">
         <button
           onClick={() => handleTabChange('all')}
@@ -98,6 +104,21 @@ export function ScraperResultsView({ results, isLoading }: ScraperResultsViewPro
             {t.label} ({counts[t.value]})
           </button>
         ))}
+      </div>
+      {webhookUrl && onSendToSheets && (
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {sheetsSendStatus === 'success' && <span className="text-xs text-emerald-600 dark:text-emerald-400">Envoyé !</span>}
+          {sheetsSendStatus === 'error' && <span className="text-xs text-red-500">Erreur webhook</span>}
+          <button
+            onClick={onSendToSheets}
+            disabled={sheetsSending || results.length === 0}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 text-white text-sm font-medium rounded-lg hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <Table2 className="w-3.5 h-3.5" />
+            {sheetsSending ? 'Envoi...' : 'Sheets'}
+          </button>
+        </div>
+      )}
       </div>
 
       {/* Results list */}

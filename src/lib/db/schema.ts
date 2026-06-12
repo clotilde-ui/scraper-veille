@@ -14,6 +14,7 @@ export const scrapeJobs = sqliteTable('scrape_jobs', {
   errorMessage: text('error_message'),
   startedAt: text('started_at'),
   finishedAt: text('finished_at'),
+  googleSheetsWebhookUrl: text('google_sheets_webhook_url'),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 });

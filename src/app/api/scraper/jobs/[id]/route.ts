@@ -57,6 +57,7 @@ export async function PATCH(
     if (body.started_at !== undefined) updateData.startedAt = body.started_at;
     if (body.finishedAt !== undefined) updateData.finishedAt = body.finishedAt;
     if (body.finished_at !== undefined) updateData.finishedAt = body.finished_at;
+    if (body.googleSheetsWebhookUrl !== undefined) updateData.googleSheetsWebhookUrl = body.googleSheetsWebhookUrl;
 
     await db.update(scrapeJobs).set(updateData).where(eq(scrapeJobs.id, id));
 
