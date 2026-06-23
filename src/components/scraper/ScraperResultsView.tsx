@@ -172,9 +172,9 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
         <table className="w-full">
           <thead className="border-b border-slate-200 dark:border-slate-700">
             <tr>
+              <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-64">Site scrapé</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-28">Type</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Valeur</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-56">Page trouvée</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-48">Label</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-64">Contexte</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-24">
@@ -195,6 +195,22 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
             {paginated.map(result => (
               <tr key={result.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
                 <td className="px-4 py-2">
+                  {result.source_url ? (
+                    <a
+                      href={result.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline max-w-[16rem]"
+                      title={result.source_url}
+                    >
+                      <span className="truncate">{formatSourceUrl(result.source_url)}</span>
+                      <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                    </a>
+                  ) : (
+                    <span className="text-sm text-slate-400">—</span>
+                  )}
+                </td>
+                <td className="px-4 py-2">
                   <ResultTypeBadge type={result.result_type as ScrapeResultType} />
                 </td>
                 <td className="px-4 py-2">
@@ -213,22 +229,6 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
                       </a>
                     )}
                   </div>
-                </td>
-                <td className="px-4 py-2">
-                  {result.source_url ? (
-                    <a
-                      href={result.source_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400 hover:underline max-w-[14rem]"
-                      title={result.source_url}
-                    >
-                      <span className="truncate">{formatSourceUrl(result.source_url)}</span>
-                      <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                    </a>
-                  ) : (
-                    <span className="text-sm text-slate-400">—</span>
-                  )}
                 </td>
                 <td className="px-4 py-2 text-sm text-slate-500 dark:text-slate-400 truncate max-w-[12rem]">
                   {result.label || '—'}
