@@ -177,13 +177,17 @@ export async function scrapeUrl(params: ScrapeUrlParams): Promise<ScrapeUrlResul
         const evaluate = compileBooleanQuery(keyword);
         if (evaluate(bodyText)) {
           const terms = extractTerms(keyword);
-          const firstTerm = terms.find(t => bodyText.toLowerCase().includes(t.toLowerCase()));
+          const matchedTerms = terms.filter(t => bodyText.toLowerCase().includes(t.toLowerCase()));
+          const firstTerm = matchedTerms[0];
           let context = '';
           if (firstTerm) {
             const idx = bodyText.toLowerCase().indexOf(firstTerm.toLowerCase());
             context = `...${bodyText.substring(Math.max(0, idx - 100), Math.min(bodyText.length, idx + firstTerm.length + 100)).trim()}...`;
           }
-          addResult('keyword_match', keyword, null, context || null, { pageUrl: foundPageUrl, pageTitle, booleanQuery: true });
+          // On stocke le(s) mot(s)-clé(s) réellement trouvé(s) comme valeur,
+          // et on conserve la requête booléenne complète dans les métadonnées.
+          const matchedValue = matchedTerms.length ? matchedTerms.join(', ') : keyword;
+          addResult('keyword_match', matchedValue, null, context || null, { pageUrl: foundPageUrl, pageTitle, booleanQuery: true, query: keyword });
         }
       } else {
         const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
