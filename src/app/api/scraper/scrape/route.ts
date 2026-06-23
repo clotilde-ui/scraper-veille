@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { scrapeJobs, scrapeUrls, scrapeResults } from '@/lib/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import * as cheerio from 'cheerio';
+import { compileBooleanQuery, extractTerms, isBooleanQuery } from '@/lib/booleanQuery';
 
 const FETCH_TIMEOUT = 15000;
 
@@ -256,21 +257,45 @@ export async function POST(request: Request) {
         const bodyText = $('body').text().replace(/\s+/g, ' ').trim();
         for (const keyword of keywords) {
           if (!keyword.trim()) continue;
-          const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const regex = new RegExp(escapedKeyword, 'gi');
-          let match;
-          let matchCount = 0;
-          while ((match = regex.exec(bodyText)) !== null && matchCount < 10) {
-            const start = Math.max(0, match.index - 100);
-            const end = Math.min(bodyText.length, match.index + keyword.length + 100);
-            const context = bodyText.substring(start, end).trim();
-            addResult('keyword_match', keyword, null, `...${context}...`, {
-              pageUrl: foundPageUrl,
-              pageTitle,
-              position: match.index,
-              matchNumber: matchCount + 1,
-            });
-            matchCount++;
+
+          if (isBooleanQuery(keyword)) {
+            // Boolean expression: evaluate once, extract context around first matching term
+            const evaluate = compileBooleanQuery(keyword);
+            if (evaluate(bodyText)) {
+              const terms = extractTerms(keyword);
+              // Find context around the first matching term
+              const firstTerm = terms.find(t => bodyText.toLowerCase().includes(t.toLowerCase()));
+              let context = '';
+              if (firstTerm) {
+                const idx = bodyText.toLowerCase().indexOf(firstTerm.toLowerCase());
+                const start = Math.max(0, idx - 100);
+                const end = Math.min(bodyText.length, idx + firstTerm.length + 100);
+                context = `...${bodyText.substring(start, end).trim()}...`;
+              }
+              addResult('keyword_match', keyword, null, context || null, {
+                pageUrl: foundPageUrl,
+                pageTitle,
+                booleanQuery: true,
+              });
+            }
+          } else {
+            // Simple keyword: search all occurrences
+            const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(escapedKeyword, 'gi');
+            let match;
+            let matchCount = 0;
+            while ((match = regex.exec(bodyText)) !== null && matchCount < 10) {
+              const start = Math.max(0, match.index - 100);
+              const end = Math.min(bodyText.length, match.index + keyword.length + 100);
+              const context = bodyText.substring(start, end).trim();
+              addResult('keyword_match', keyword, null, `...${context}...`, {
+                pageUrl: foundPageUrl,
+                pageTitle,
+                position: match.index,
+                matchNumber: matchCount + 1,
+              });
+              matchCount++;
+            }
           }
         }
       }
