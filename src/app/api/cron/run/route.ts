@@ -4,6 +4,7 @@ import { scrapeJobs, scrapeUrls } from '@/lib/db/schema';
 import { isNotNull, lte, eq, and } from 'drizzle-orm';
 import { runJobServerSide } from '@/lib/serverOrchestrator';
 import { getNextRunAt } from '@/lib/cronUtils';
+import { sendJobToSheets } from '@/lib/sendToSheets';
 
 export const maxDuration = 300; // 5 min max (Vercel Pro)
 
@@ -87,19 +88,11 @@ export async function GET(request: NextRequest) {
         })));
       }
 
-      // Lancer le scraping server-side (sans await pour ne pas bloquer)
+      // Lancer le scraping server-side puis envoyer vers Google Sheets si configuré
       runJobServerSide(newJobId).then(async () => {
-        // Envoyer vers Google Sheets si webhook configuré
         if (job.googleSheetsWebhookUrl) {
-          try {
-            await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ''}/api/scraper/google-sheets`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ jobId: newJobId, webhookUrl: job.googleSheetsWebhookUrl }),
-            });
-          } catch (e) {
-            console.error('Erreur envoi Google Sheets après cron:', e);
-          }
+          const sheetsResult = await sendJobToSheets(newJobId, job.googleSheetsWebhookUrl);
+          if (!sheetsResult.success) console.error('Erreur envoi Google Sheets après cron:', sheetsResult.error);
         }
       }).catch(err => console.error('Erreur job cron:', err));
 
