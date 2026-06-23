@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
       scrapeType: body.scrapeType || body.scrape_type || 'links',
       crawlDepth: body.crawlDepth ?? body.crawl_depth ?? 1,
       keywords: body.keywords ? JSON.stringify(body.keywords) : null,
+      aiAutoScore: (body.aiAutoScore ?? body.ai_auto_score) ? 1 : 0,
       totalUrls: 0,
       completedUrls: 0,
       failedUrls: 0,

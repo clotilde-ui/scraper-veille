@@ -39,7 +39,12 @@ export default function ScrapeJobDetailPage() {
   const [scheduleSaving, setScheduleSaving] = useState(false);
   const [scheduleError, setScheduleError] = useState('');
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [scoring, setScoring] = useState(false);
+  const [scoreRemaining, setScoreRemaining] = useState<number | null>(null);
+  const [scoreError, setScoreError] = useState<string | null>(null);
   const prevIsRunning = useRef(false);
+  const prevIsRunningForScore = useRef(false);
+  const autoScoredRef = useRef(false);
 
   const job = jobs.find(j => j.id === jobId);
 
@@ -93,6 +98,37 @@ export default function ScrapeJobDetailPage() {
     }
   }, [jobId, webhookUrl]);
 
+  // Scoring IA : appelle la route par lots jusqu'à ce qu'il ne reste plus rien à noter.
+  const scoreJob = useCallback(async () => {
+    setScoring(true);
+    setScoreError(null);
+    setScoreRemaining(null);
+    try {
+      let guard = 0;
+      while (guard++ < 1000) {
+        const res = await fetch(`/api/scraper/jobs/${jobId}/score`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ limit: 10 }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setScoreError(data.error || 'Erreur lors du scoring IA');
+          break;
+        }
+        setScoreRemaining(data.remaining ?? 0);
+        await fetchResults(false);
+        if ((data.remaining ?? 0) <= 0) break;
+      }
+    } catch (err) {
+      setScoreError((err as Error)?.message || 'Erreur lors du scoring IA');
+    } finally {
+      setScoring(false);
+      setScoreRemaining(null);
+      await fetchResults(false);
+    }
+  }, [jobId, fetchResults]);
+
   const saveWebhookUrl = useCallback(async (url: string) => {
     setWebhookSaving(true);
     try {
@@ -115,6 +151,17 @@ export default function ScrapeJobDetailPage() {
     }
     prevIsRunning.current = orchestrator.isRunning;
   }, [orchestrator.isRunning, job?.status, job?.google_sheets_webhook_url, webhookUrl, sendToGoogleSheets]);
+
+  // Auto-score with AI when scraping completes (if enabled on the job)
+  useEffect(() => {
+    if (orchestrator.isRunning) {
+      autoScoredRef.current = false;
+    } else if (prevIsRunningForScore.current && job?.status === 'completed' && job?.ai_auto_score && !autoScoredRef.current) {
+      autoScoredRef.current = true;
+      scoreJob();
+    }
+    prevIsRunningForScore.current = orchestrator.isRunning;
+  }, [orchestrator.isRunning, job?.status, job?.ai_auto_score, scoreJob]);
 
   // Polling de secours pendant le scraping (realtime pas toujours fiable sur Vercel)
   const isScrapingActive = orchestrator.isRunning || job?.status === 'running' || job?.status === 'paused';
@@ -161,7 +208,7 @@ export default function ScrapeJobDetailPage() {
     orchestrator.cancel(job.id);
   }, [job, orchestrator]);
 
-  const handleEditAndRelaunch = useCallback(async (config: { name: string; urls: string[]; scrapeType: string; crawlDepth: number; keywords: { include: string[]; exclude: string[] } }) => {
+  const handleEditAndRelaunch = useCallback(async (config: { name: string; urls: string[]; scrapeType: string; crawlDepth: number; keywords: { include: string[]; exclude: string[] }; aiAutoScore: boolean }) => {
     await fetch(`/api/scraper/jobs/${jobId}/reset`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -171,6 +218,7 @@ export default function ScrapeJobDetailPage() {
         crawlDepth: config.crawlDepth,
         keywords: config.keywords,
         urls: config.urls,
+        aiAutoScore: config.aiAutoScore,
       }),
     });
     await fetchJobs(false);
@@ -354,6 +402,10 @@ export default function ScrapeJobDetailPage() {
           onSendToSheets={() => sendToGoogleSheets()}
           sheetsSending={sheetsSending}
           sheetsSendStatus={sheetsSendStatus}
+          onScore={scoreJob}
+          scoring={scoring}
+          scoreRemaining={scoreRemaining}
+          scoreError={scoreError}
         />
       )}
 
@@ -523,6 +575,7 @@ export default function ScrapeJobDetailPage() {
           crawlDepth: job.crawl_depth,
           keywordsInclude: job.keywords?.include.join(', ') ?? '',
           keywordsExclude: job.keywords?.exclude.join(', ') ?? '',
+          aiAutoScore: job.ai_auto_score,
         };
         return (
           <ScraperNewJobModal
