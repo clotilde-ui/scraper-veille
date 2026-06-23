@@ -43,6 +43,8 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
   }, [filtered, sortScore]);
 
   const hasKeywordResults = useMemo(() => results.some(r => r.result_type === 'keyword_match'), [results]);
+  // Masque la colonne Label quand aucun résultat n'en a (ex: scraping 100% mots-clés)
+  const hasLabels = useMemo(() => results.some(r => r.label && String(r.label).trim() !== ''), [results]);
 
   // Pagination
   const paginated = useMemo(() =>
@@ -175,7 +177,7 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
               <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-64">Site scrapé</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-28">Type</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Valeur</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-48">Label</th>
+              {hasLabels && <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-48">Label</th>}
               <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-64">Contexte</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-24">
                 <button
@@ -230,9 +232,11 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
                     )}
                   </div>
                 </td>
-                <td className="px-4 py-2 text-sm text-slate-500 dark:text-slate-400 truncate max-w-[12rem]">
-                  {result.label || '—'}
-                </td>
+                {hasLabels && (
+                  <td className="px-4 py-2 text-sm text-slate-500 dark:text-slate-400 truncate max-w-[12rem]">
+                    {result.label || '—'}
+                  </td>
+                )}
                 <td className="px-4 py-2 text-xs text-slate-500 dark:text-slate-400 truncate max-w-[16rem]">
                   {result.context || '—'}
                 </td>
@@ -252,7 +256,7 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
+                <td colSpan={hasLabels ? 7 : 6} className="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
                   Aucun résultat{activeTab !== 'all' ? ' pour ce type' : ''}
                 </td>
               </tr>
