@@ -31,6 +31,8 @@ export interface ScrapeJobRow {
   started_at: string | null;
   finished_at: string | null;
   google_sheets_webhook_url: string | null | undefined;
+  schedule: string | null | undefined;
+  next_run_at: string | null | undefined;
   created_at: string;
   updated_at: string;
   // Compat with old DbScrapeJobWithCreator usage
@@ -54,6 +56,8 @@ function normalize(row: Record<string, unknown>): ScrapeJobRow {
     started_at: (row.startedAt ?? row.started_at ?? null) as string | null,
     finished_at: (row.finishedAt ?? row.finished_at ?? null) as string | null,
     google_sheets_webhook_url: (row.googleSheetsWebhookUrl ?? row.google_sheets_webhook_url ?? null) as string | null,
+    schedule: (row.schedule ?? null) as string | null,
+    next_run_at: (row.nextRunAt ?? row.next_run_at ?? null) as string | null,
     created_at: (row.createdAt ?? row.created_at ?? '') as string,
     updated_at: (row.updatedAt ?? row.updated_at ?? '') as string,
     users: null,
@@ -110,7 +114,7 @@ export function useSupabaseScrapeJobs() {
     return () => { mountedRef.current = false; };
   }, [fetchJobs]);
 
-  const addJob = async (data: Omit<ScrapeJobRow, 'id' | 'created_at' | 'updated_at' | 'users' | 'google_sheets_webhook_url'>) => {
+  const addJob = async (data: Omit<ScrapeJobRow, 'id' | 'created_at' | 'updated_at' | 'users' | 'google_sheets_webhook_url' | 'schedule' | 'next_run_at'>) => {
     setError(null);
     try {
       const res = await fetch('/api/scraper/jobs', {
