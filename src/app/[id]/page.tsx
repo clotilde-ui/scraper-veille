@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Play, Globe, FileText, Link2, Download, Table2, Clock } from 'lucide-react';
+import { ArrowLeft, Play, Globe, FileText, Link2, Download, Table2, Clock, Pencil } from 'lucide-react';
 import { useSupabaseScrapeJobs, parseKeywords } from '@/hooks/useSupabaseScrapeJobs';
 import { useSupabaseScrapeUrls } from '@/hooks/useSupabaseScrapeUrls';
 import { useSupabaseScrapeResults } from '@/hooks/useSupabaseScrapeResults';
@@ -12,8 +12,10 @@ import { ScraperProgressPanel } from '@/components/scraper/ScraperProgressPanel'
 import { ScraperUrlList } from '@/components/scraper/ScraperUrlList';
 import { ScraperResultsView } from '@/components/scraper/ScraperResultsView';
 import { ScraperResultExport } from '@/components/scraper/ScraperResultExport';
+import { ScraperNewJobModal } from '@/components/scraper/ScraperNewJobModal';
+import type { EditJobDefaults } from '@/components/scraper/ScraperNewJobModal';
 import { SCRAPE_TYPES } from '@/types';
-import type { ScrapeJobStatus } from '@/types';
+import type { ScrapeJobStatus, ScrapeType } from '@/types';
 import { CRON_PRESETS, describeCron, validateCron, getNextRunAt } from '@/lib/cronUtils';
 
 type Tab = 'overview' | 'urls' | 'results' | 'export' | 'schedule';
@@ -36,6 +38,7 @@ export default function ScrapeJobDetailPage() {
   const [scheduleValue, setScheduleValue] = useState('');
   const [scheduleSaving, setScheduleSaving] = useState(false);
   const [scheduleError, setScheduleError] = useState('');
+  const [editModalOpen, setEditModalOpen] = useState(false);
   const prevIsRunning = useRef(false);
 
   const job = jobs.find(j => j.id === jobId);
@@ -158,6 +161,23 @@ export default function ScrapeJobDetailPage() {
     orchestrator.cancel(job.id);
   }, [job, orchestrator]);
 
+  const handleEditAndRelaunch = useCallback(async (config: { name: string; urls: string[]; scrapeType: string; crawlDepth: number; keywords: { include: string[]; exclude: string[] } }) => {
+    await fetch(`/api/scraper/jobs/${jobId}/reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: config.name,
+        scrapeType: config.scrapeType,
+        crawlDepth: config.crawlDepth,
+        keywords: config.keywords,
+        urls: config.urls,
+      }),
+    });
+    await fetchJobs(false);
+    await fetchUrls(false);
+    setEditModalOpen(false);
+  }, [jobId, fetchJobs, fetchUrls]);
+
   if (!job) {
     return (
       <div className="flex items-center justify-center py-20 text-slate-500 dark:text-slate-400">
@@ -205,6 +225,14 @@ export default function ScrapeJobDetailPage() {
             )}
           </div>
         </div>
+        <button
+          onClick={() => setEditModalOpen(true)}
+          disabled={orchestrator.isRunning}
+          className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors font-medium text-sm disabled:opacity-50"
+        >
+          <Pencil className="w-4 h-4" />
+          Modifier et relancer
+        </button>
         {canStart && (
           <button
             onClick={handleStart}
@@ -483,6 +511,28 @@ export default function ScrapeJobDetailPage() {
           </div>
         </div>
       )}
+
+      {editModalOpen && (() => {
+        let currentTypes: ScrapeType[] = ['pdfs'];
+        try { currentTypes = JSON.parse(job.scrape_type) as ScrapeType[]; } catch { currentTypes = [job.scrape_type as ScrapeType]; }
+        const currentUrls = urls.filter(u => u.depth === 0).map(u => u.url);
+        const editDefaults: EditJobDefaults = {
+          name: job.name,
+          urls: currentUrls,
+          scrapeTypes: currentTypes,
+          crawlDepth: job.crawl_depth,
+          keywordsInclude: job.keywords?.include.join(', ') ?? '',
+          keywordsExclude: job.keywords?.exclude.join(', ') ?? '',
+        };
+        return (
+          <ScraperNewJobModal
+            isOpen={editModalOpen}
+            onClose={() => setEditModalOpen(false)}
+            onSubmit={handleEditAndRelaunch}
+            editDefaults={editDefaults}
+          />
+        );
+      })()}
     </div>
   );
 }
