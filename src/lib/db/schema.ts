@@ -15,6 +15,8 @@ export const scrapeJobs = sqliteTable('scrape_jobs', {
   startedAt: text('started_at'),
   finishedAt: text('finished_at'),
   googleSheetsWebhookUrl: text('google_sheets_webhook_url'),
+  schedule: text('schedule'), // cron expression e.g. "0 9 * * 1"
+  nextRunAt: text('next_run_at'),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 });

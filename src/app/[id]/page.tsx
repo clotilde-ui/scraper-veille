@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Play, Globe, FileText, Link2, Download, Table2 } from 'lucide-react';
+import { ArrowLeft, Play, Globe, FileText, Link2, Download, Table2, Clock } from 'lucide-react';
 import { useSupabaseScrapeJobs, parseKeywords } from '@/hooks/useSupabaseScrapeJobs';
 import { useSupabaseScrapeUrls } from '@/hooks/useSupabaseScrapeUrls';
 import { useSupabaseScrapeResults } from '@/hooks/useSupabaseScrapeResults';
@@ -14,8 +14,9 @@ import { ScraperResultsView } from '@/components/scraper/ScraperResultsView';
 import { ScraperResultExport } from '@/components/scraper/ScraperResultExport';
 import { SCRAPE_TYPES } from '@/types';
 import type { ScrapeJobStatus } from '@/types';
+import { CRON_PRESETS, describeCron, validateCron, getNextRunAt } from '@/lib/cronUtils';
 
-type Tab = 'overview' | 'urls' | 'results' | 'export';
+type Tab = 'overview' | 'urls' | 'results' | 'export' | 'schedule';
 
 export default function ScrapeJobDetailPage() {
   const params = useParams();
@@ -32,6 +33,9 @@ export default function ScrapeJobDetailPage() {
   const [webhookSaving, setWebhookSaving] = useState(false);
   const [sheetsSending, setSheetsSending] = useState(false);
   const [sheetsSendStatus, setSheetsSendStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [scheduleValue, setScheduleValue] = useState('');
+  const [scheduleSaving, setScheduleSaving] = useState(false);
+  const [scheduleError, setScheduleError] = useState('');
   const prevIsRunning = useRef(false);
 
   const job = jobs.find(j => j.id === jobId);
@@ -40,6 +44,31 @@ export default function ScrapeJobDetailPage() {
   useEffect(() => {
     if (job?.google_sheets_webhook_url) setWebhookUrl(job.google_sheets_webhook_url);
   }, [job?.google_sheets_webhook_url]);
+
+  // Sync schedule from job data
+  useEffect(() => {
+    if (job?.schedule) setScheduleValue(job.schedule);
+  }, [job?.schedule]);
+
+  const saveSchedule = useCallback(async (cron: string) => {
+    if (cron && !validateCron(cron)) {
+      setScheduleError('Expression cron invalide');
+      return;
+    }
+    setScheduleError('');
+    setScheduleSaving(true);
+    try {
+      const nextRunAt = cron ? getNextRunAt(cron) : null;
+      await fetch(`/api/scraper/jobs/${jobId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schedule: cron || null, nextRunAt }),
+      });
+      await fetchJobs(false);
+    } finally {
+      setScheduleSaving(false);
+    }
+  }, [jobId, fetchJobs]);
 
   const sendToGoogleSheets = useCallback(async (url?: string) => {
     const targetUrl = url ?? webhookUrl;
@@ -146,6 +175,7 @@ export default function ScrapeJobDetailPage() {
     { key: 'urls', label: 'URLs', icon: Link2, count: urls.length },
     { key: 'results', label: 'Résultats', icon: FileText, count: results.length },
     { key: 'export', label: 'Export', icon: Download },
+    { key: 'schedule', label: 'Planification', icon: Clock },
   ];
 
   return (
@@ -360,6 +390,96 @@ export default function ScrapeJobDetailPage() {
                 <span className="text-sm text-red-500 dark:text-red-400 font-medium">Erreur lors de l&apos;envoi. Vérifie l&apos;URL du webhook.</span>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'schedule' && (
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 space-y-6">
+          <div className="flex items-center gap-2">
+            <Clock className="w-5 h-5 text-blue-500" />
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Planification automatique</h3>
+          </div>
+
+          {job.schedule && job.next_run_at && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 text-sm">
+              <p className="font-medium text-blue-700 dark:text-blue-300">Planning actif : {describeCron(job.schedule)}</p>
+              <p className="text-blue-600 dark:text-blue-400 mt-1">
+                Prochain lancement : {new Date(job.next_run_at).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}
+              </p>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Fréquence prédéfinie</label>
+            <div className="grid grid-cols-2 gap-2">
+              {CRON_PRESETS.map(preset => (
+                <button
+                  key={preset.value}
+                  onClick={() => setScheduleValue(preset.value)}
+                  className={`px-3 py-2 rounded-lg text-sm text-left transition-colors border ${
+                    scheduleValue === preset.value
+                      ? 'bg-blue-500 text-white border-blue-500'
+                      : 'bg-slate-50 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-blue-400'
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+              <button
+                onClick={() => setScheduleValue('')}
+                className={`px-3 py-2 rounded-lg text-sm text-left transition-colors border ${
+                  !CRON_PRESETS.find(p => p.value === scheduleValue) && scheduleValue
+                    ? 'bg-blue-500 text-white border-blue-500'
+                    : 'bg-slate-50 dark:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-blue-400'
+                }`}
+              >
+                Personnalisé (cron)
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+              Expression cron
+              <span className="text-slate-400 font-normal ml-2">minute heure jour mois jour_semaine</span>
+            </label>
+            <input
+              type="text"
+              value={scheduleValue}
+              onChange={e => { setScheduleValue(e.target.value); setScheduleError(''); }}
+              placeholder="Ex: 0 9 * * 1 (tous les lundis à 9h)"
+              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-mono"
+            />
+            {scheduleError && <p className="text-xs text-red-500">{scheduleError}</p>}
+            {scheduleValue && validateCron(scheduleValue) && (
+              <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                Prochain lancement prévu : {new Date(getNextRunAt(scheduleValue)).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}
+              </p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => saveSchedule(scheduleValue)}
+              disabled={scheduleSaving}
+              className="px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors"
+            >
+              {scheduleSaving ? 'Sauvegarde...' : 'Activer le planning'}
+            </button>
+            {job.schedule && (
+              <button
+                onClick={() => { setScheduleValue(''); saveSchedule(''); }}
+                disabled={scheduleSaving}
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50 transition-colors"
+              >
+                Désactiver
+              </button>
+            )}
+          </div>
+
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-xs text-amber-700 dark:text-amber-400">
+            Le scraping planifié tourne automatiquement côté serveur, sans avoir besoin d&apos;ouvrir l&apos;app. Les résultats seront envoyés vers Google Sheets si un webhook est configuré dans l&apos;onglet Export.
           </div>
         </div>
       )}
