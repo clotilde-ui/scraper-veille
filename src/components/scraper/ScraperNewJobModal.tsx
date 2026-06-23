@@ -14,24 +14,36 @@ interface NewJobConfig {
   keywords: { include: string[]; exclude: string[] };
 }
 
+export interface EditJobDefaults {
+  name: string;
+  urls: string[];
+  scrapeTypes: ScrapeType[];
+  crawlDepth: number;
+  keywordsInclude: string;
+  keywordsExclude: string;
+}
+
 interface ScraperNewJobModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (config: NewJobConfig) => void;
+  editDefaults?: EditJobDefaults;
 }
 
 type Step = 1 | 2 | 3;
 
-export function ScraperNewJobModal({ isOpen, onClose, onSubmit }: ScraperNewJobModalProps) {
+export function ScraperNewJobModal({ isOpen, onClose, onSubmit, editDefaults }: ScraperNewJobModalProps) {
   const [step, setStep] = useState<Step>(1);
-  const [name, setName] = useState('');
-  const [urlsText, setUrlsText] = useState('');
+  const [name, setName] = useState(editDefaults?.name ?? '');
+  const [urlsText, setUrlsText] = useState(editDefaults?.urls.join('\n') ?? '');
   const [csvFile, setCsvFile] = useState<File | null>(null);
-  const [scrapeTypes, setScrapeTypes] = useState<ScrapeType[]>(['pdfs']);
-  const [crawlDepth, setCrawlDepth] = useState(1);
-  const [keywordsText, setKeywordsText] = useState('');
-  const [excludeKeywordsText, setExcludeKeywordsText] = useState('');
+  const [scrapeTypes, setScrapeTypes] = useState<ScrapeType[]>(editDefaults?.scrapeTypes ?? ['pdfs']);
+  const [crawlDepth, setCrawlDepth] = useState(editDefaults?.crawlDepth ?? 1);
+  const [keywordsText, setKeywordsText] = useState(editDefaults?.keywordsInclude ?? '');
+  const [excludeKeywordsText, setExcludeKeywordsText] = useState(editDefaults?.keywordsExclude ?? '');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isEdit = !!editDefaults;
 
   const parsedUrls = urlsText
     .split('\n')
@@ -122,7 +134,7 @@ export function ScraperNewJobModal({ isOpen, onClose, onSubmit }: ScraperNewJobM
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Nouveau scraping</h2>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{isEdit ? 'Modifier et relancer' : 'Nouveau scraping'}</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400">
               Étape {step}/3 — {step === 1 ? 'URLs' : step === 2 ? 'Configuration' : 'Confirmation'}
             </p>
@@ -374,7 +386,7 @@ export function ScraperNewJobModal({ isOpen, onClose, onSubmit }: ScraperNewJobM
               className="flex items-center gap-1 px-6 py-2 bg-emerald-500 text-white text-sm font-medium rounded-lg hover:bg-emerald-600 transition-colors"
             >
               <Globe className="w-4 h-4" />
-              Lancer le scraping
+              {isEdit ? 'Relancer' : 'Lancer le scraping'}
             </button>
           )}
         </div>
