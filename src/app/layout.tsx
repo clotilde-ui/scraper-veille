@@ -25,7 +25,7 @@ const manrope = Manrope({
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: "Scraper — SONATE",
+  title: "Scraper SONATE",
   description: "Outil de scraping et d'audit de sites web",
 };
 
