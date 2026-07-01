@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { ExternalLink, Copy, Check, Table2, Sparkles, ArrowDown, ArrowUp } from 'lucide-react';
+import { ExternalLink, Copy, Check, Table2 } from 'lucide-react';
 import { ResultTypeBadge } from './ScraperStatusBadge';
 import { Pagination } from '@/components/Pagination';
 import { SCRAPE_RESULT_TYPES } from '@/types';
@@ -16,42 +16,28 @@ interface ScraperResultsViewProps {
   onSendToSheets?: () => void;
   sheetsSending?: boolean;
   sheetsSendStatus?: 'idle' | 'success' | 'error';
-  onScore?: () => void;
-  scoring?: boolean;
-  scoreRemaining?: number | null;
-  scoreError?: string | null;
 }
 
-export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToSheets, sheetsSending, sheetsSendStatus, onScore, scoring, scoreRemaining, scoreError }: ScraperResultsViewProps) {
+export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToSheets, sheetsSending, sheetsSendStatus }: ScraperResultsViewProps) {
   const [activeTab, setActiveTab] = useState<ScrapeResultType | 'all'>('all');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
-  const [sortScore, setSortScore] = useState<'none' | 'desc' | 'asc'>('none');
 
   const filtered = useMemo(() =>
     activeTab === 'all' ? results : results.filter(r => r.result_type === activeTab),
     [results, activeTab]
   );
 
-  const sorted = useMemo(() => {
-    if (sortScore === 'none') return filtered;
-    const rank = (v: number | null) => (v === null || v < 0 ? -1 : v);
-    return [...filtered].sort((a, b) =>
-      sortScore === 'desc' ? rank(b.ai_score) - rank(a.ai_score) : rank(a.ai_score) - rank(b.ai_score)
-    );
-  }, [filtered, sortScore]);
-
-  const hasKeywordResults = useMemo(() => results.some(r => r.result_type === 'keyword_match'), [results]);
   // Masque la colonne Label quand aucun résultat n'en a (ex: scraping 100% mots-clés)
   const hasLabels = useMemo(() => results.some(r => r.label && String(r.label).trim() !== ''), [results]);
 
   // Pagination
   const paginated = useMemo(() =>
     itemsPerPage === 0
-      ? sorted
-      : sorted.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage),
-    [sorted, currentPage, itemsPerPage]
+      ? filtered
+      : filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage),
+    [filtered, currentPage, itemsPerPage]
   );
 
   // Count par type
@@ -83,19 +69,6 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
   const handleTabChange = (tab: ScrapeResultType | 'all') => {
     setActiveTab(tab);
     setCurrentPage(1);
-  };
-
-  const renderScore = (result: ScrapeResultRow) => {
-    if (result.result_type !== 'keyword_match') return <span className="text-sm text-slate-300 dark:text-slate-600">—</span>;
-    const s = result.ai_score;
-    if (s === null || s === undefined) return <span className="text-xs text-slate-400">non noté</span>;
-    if (s < 0) return <span className="text-xs text-slate-400" title="Non évalué par l'IA">—</span>;
-    const color = s >= 7
-      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-      : s >= 4
-        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-        : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300';
-    return <span className={`inline-flex items-center justify-center min-w-[2rem] px-1.5 py-0.5 rounded-md text-sm font-semibold ${color}`}>{s}</span>;
   };
 
   if (isLoading) {
@@ -136,22 +109,6 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
         ))}
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
-        {onScore && hasKeywordResults && (
-          <>
-            {scoreError && <span className="text-xs text-red-500" title={scoreError}>Erreur scoring</span>}
-            <button
-              onClick={onScore}
-              disabled={scoring}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-500 text-white text-sm font-medium rounded-lg hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              title="Noter chaque correspondance de mots-clés de 0 à 10 avec l'IA"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              {scoring
-                ? (scoreRemaining != null ? `Analyse… (${scoreRemaining})` : 'Analyse…')
-                : 'Analyser avec l\'IA'}
-            </button>
-          </>
-        )}
         {webhookUrl && onSendToSheets && (
           <>
             {sheetsSendStatus === 'success' && <span className="text-xs text-emerald-600 dark:text-emerald-400">Envoyé !</span>}
@@ -179,17 +136,6 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
               <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Valeur</th>
               {hasLabels && <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-48">Label</th>}
               <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-64">Contexte</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-24">
-                <button
-                  onClick={() => setSortScore(prev => prev === 'desc' ? 'asc' : prev === 'asc' ? 'none' : 'desc')}
-                  className="inline-flex items-center gap-1 uppercase hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
-                  title="Trier par score"
-                >
-                  Score IA
-                  {sortScore === 'desc' && <ArrowDown className="w-3 h-3" />}
-                  {sortScore === 'asc' && <ArrowUp className="w-3 h-3" />}
-                </button>
-              </th>
               <th className="px-4 py-2 w-20" />
             </tr>
           </thead>
@@ -241,9 +187,6 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
                   {result.context || '—'}
                 </td>
                 <td className="px-4 py-2">
-                  {renderScore(result)}
-                </td>
-                <td className="px-4 py-2">
                   <button
                     onClick={() => copyValue(result.id, result.value)}
                     className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
@@ -256,7 +199,7 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={hasLabels ? 7 : 6} className="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
+                <td colSpan={hasLabels ? 6 : 5} className="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
                   Aucun résultat{activeTab !== 'all' ? ' pour ce type' : ''}
                 </td>
               </tr>

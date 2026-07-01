@@ -12,7 +12,6 @@ export interface ScrapeResultRow {
   label: string | null;
   context: string | null;
   metadata: Record<string, unknown> | null;
-  ai_score: number | null;
   created_at: string;
 }
 
@@ -27,7 +26,6 @@ function normalize(row: Record<string, unknown>): ScrapeResultRow {
     label: (row.label ?? null) as string | null,
     context: (row.context ?? null) as string | null,
     metadata: (row.metadata ?? null) as Record<string, unknown> | null,
-    ai_score: ((row.aiScore ?? row.ai_score) ?? null) as number | null,
     created_at: (row.createdAt ?? row.created_at ?? '') as string,
   };
 }
