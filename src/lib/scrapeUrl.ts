@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { scrapeUrls, scrapeResults } from '@/lib/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { scrapeJobs } from '@/lib/db/schema';
-import { compileBooleanQuery, extractTerms, isBooleanQuery } from '@/lib/booleanQuery';
+import { compileBooleanQuery, extractTerms, isBooleanQuery, normalizeApostrophes } from '@/lib/booleanQuery';
 
 const FETCH_TIMEOUT = 15000;
 // Nombre de caractères capturés de part et d'autre du mot-clé pour le contexte.
@@ -173,17 +173,21 @@ export async function scrapeUrl(params: ScrapeUrlParams): Promise<ScrapeUrlResul
   if (hasKeywords && keywords && keywords.length > 0) {
     $('script, style, noscript').remove();
     const bodyText = $('body').text().replace(/\s+/g, ' ').trim();
+    // Texte normalisé (apostrophes + minuscules) pour la RECHERCHE. La
+    // normalisation est 1 pour 1, donc les index restent valides sur bodyText
+    // (texte d'origine) qui sert, lui, à extraire le contexte lisible.
+    const normBody = normalizeApostrophes(bodyText.toLowerCase());
     for (const keyword of keywords) {
       if (!keyword.trim()) continue;
       if (isBooleanQuery(keyword)) {
         const evaluate = compileBooleanQuery(keyword);
         if (evaluate(bodyText)) {
           const terms = extractTerms(keyword);
-          const matchedTerms = terms.filter(t => bodyText.toLowerCase().includes(t.toLowerCase()));
+          const matchedTerms = terms.filter(t => normBody.includes(normalizeApostrophes(t.toLowerCase())));
           const firstTerm = matchedTerms[0];
           let context = '';
           if (firstTerm) {
-            const idx = bodyText.toLowerCase().indexOf(firstTerm.toLowerCase());
+            const idx = normBody.indexOf(normalizeApostrophes(firstTerm.toLowerCase()));
             context = `...${bodyText.substring(Math.max(0, idx - CONTEXT_RADIUS), Math.min(bodyText.length, idx + firstTerm.length + CONTEXT_RADIUS)).trim()}...`;
           }
           // On stocke le(s) mot(s)-clé(s) réellement trouvé(s) comme valeur ET
@@ -193,11 +197,12 @@ export async function scrapeUrl(params: ScrapeUrlParams): Promise<ScrapeUrlResul
           addResult('keyword_match', matchedValue, matchedValue, context || null, { pageUrl: foundPageUrl, pageTitle, booleanQuery: true, query: keyword });
         }
       } else {
-        const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const escapedKeyword = normalizeApostrophes(keyword).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const regex = new RegExp(escapedKeyword, 'gi');
         let match;
         let matchCount = 0;
-        while ((match = regex.exec(bodyText)) !== null && matchCount < 10) {
+        // Recherche sur normBody ; match.index reste valide sur bodyText.
+        while ((match = regex.exec(normBody)) !== null && matchCount < 10) {
           const start = Math.max(0, match.index - CONTEXT_RADIUS);
           const end = Math.min(bodyText.length, match.index + keyword.length + CONTEXT_RADIUS);
           // Le mot-clé précis qui a matché est aussi placé dans la colonne Label.
