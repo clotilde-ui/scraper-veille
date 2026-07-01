@@ -2,6 +2,14 @@
 // Supports: AND, OR, NOT, parentheses, quoted phrases
 // Example: travaux AND (mairie OR commune) NOT archive
 
+// Normalise les variantes typographiques d'apostrophes vers l'apostrophe droite,
+// pour que "château d'eau" (requête) matche "château d'eau" (page web) et
+// inversement. Remplacement 1 pour 1 : les positions de caractères sont
+// préservées (indispensable pour retrouver le contexte au bon endroit).
+export function normalizeApostrophes(s: string): string {
+  return s.replace(/[‘’ʼ′`´]/g, "'");
+}
+
 type Token =
   | { type: 'WORD'; value: string }
   | { type: 'AND' }
@@ -99,8 +107,8 @@ class Parser {
     }
     if (token.type === 'WORD') {
       this.consume();
-      const word = token.value.toLowerCase();
-      return (text) => text.toLowerCase().includes(word);
+      const word = normalizeApostrophes(token.value.toLowerCase());
+      return (text) => normalizeApostrophes(text.toLowerCase()).includes(word);
     }
     return () => false;
   }
@@ -113,8 +121,8 @@ export function compileBooleanQuery(query: string): (text: string) => boolean {
     return parser.parse();
   } catch {
     // Fallback: simple substring match
-    const q = query.toLowerCase();
-    return (text) => text.toLowerCase().includes(q);
+    const q = normalizeApostrophes(query.toLowerCase());
+    return (text) => normalizeApostrophes(text.toLowerCase()).includes(q);
   }
 }
 
