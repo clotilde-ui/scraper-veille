@@ -6,6 +6,8 @@ import { scrapeJobs } from '@/lib/db/schema';
 import { compileBooleanQuery, extractTerms, isBooleanQuery } from '@/lib/booleanQuery';
 
 const FETCH_TIMEOUT = 15000;
+// Nombre de caractères capturés de part et d'autre du mot-clé pour le contexte.
+const CONTEXT_RADIUS = 300;
 const DOWNLOAD_EXTENSIONS = [
   '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
   '.zip', '.rar', '.7z', '.tar', '.gz', '.csv', '.txt', '.rtf', '.odt', '.ods',
@@ -182,12 +184,13 @@ export async function scrapeUrl(params: ScrapeUrlParams): Promise<ScrapeUrlResul
           let context = '';
           if (firstTerm) {
             const idx = bodyText.toLowerCase().indexOf(firstTerm.toLowerCase());
-            context = `...${bodyText.substring(Math.max(0, idx - 100), Math.min(bodyText.length, idx + firstTerm.length + 100)).trim()}...`;
+            context = `...${bodyText.substring(Math.max(0, idx - CONTEXT_RADIUS), Math.min(bodyText.length, idx + firstTerm.length + CONTEXT_RADIUS)).trim()}...`;
           }
-          // On stocke le(s) mot(s)-clé(s) réellement trouvé(s) comme valeur,
-          // et on conserve la requête booléenne complète dans les métadonnées.
+          // On stocke le(s) mot(s)-clé(s) réellement trouvé(s) comme valeur ET
+          // dans le label (colonne Label), et on conserve la requête booléenne
+          // complète dans les métadonnées.
           const matchedValue = matchedTerms.length ? matchedTerms.join(', ') : keyword;
-          addResult('keyword_match', matchedValue, null, context || null, { pageUrl: foundPageUrl, pageTitle, booleanQuery: true, query: keyword });
+          addResult('keyword_match', matchedValue, matchedValue, context || null, { pageUrl: foundPageUrl, pageTitle, booleanQuery: true, query: keyword });
         }
       } else {
         const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -195,9 +198,10 @@ export async function scrapeUrl(params: ScrapeUrlParams): Promise<ScrapeUrlResul
         let match;
         let matchCount = 0;
         while ((match = regex.exec(bodyText)) !== null && matchCount < 10) {
-          const start = Math.max(0, match.index - 100);
-          const end = Math.min(bodyText.length, match.index + keyword.length + 100);
-          addResult('keyword_match', keyword, null, `...${bodyText.substring(start, end).trim()}...`, { pageUrl: foundPageUrl, pageTitle, position: match.index, matchNumber: matchCount + 1 });
+          const start = Math.max(0, match.index - CONTEXT_RADIUS);
+          const end = Math.min(bodyText.length, match.index + keyword.length + CONTEXT_RADIUS);
+          // Le mot-clé précis qui a matché est aussi placé dans la colonne Label.
+          addResult('keyword_match', keyword, keyword, `...${bodyText.substring(start, end).trim()}...`, { pageUrl: foundPageUrl, pageTitle, position: match.index, matchNumber: matchCount + 1 });
           matchCount++;
         }
       }

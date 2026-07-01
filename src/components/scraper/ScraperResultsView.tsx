@@ -135,7 +135,7 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
               <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-28">Type</th>
               <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Valeur</th>
               {hasLabels && <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-48">Label</th>}
-              <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-64">Contexte</th>
+              <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-96">Contexte</th>
               <th className="px-4 py-2 w-20" />
             </tr>
           </thead>
@@ -183,8 +183,8 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
                     {result.label || '—'}
                   </td>
                 )}
-                <td className="px-4 py-2 text-xs text-slate-500 dark:text-slate-400 truncate max-w-[16rem]">
-                  {result.context || '—'}
+                <td className="px-4 py-2 text-xs text-slate-500 dark:text-slate-400 max-w-md align-top" title={result.context || undefined}>
+                  <span className="line-clamp-3 whitespace-pre-wrap">{result.context || '—'}</span>
                 </td>
                 <td className="px-4 py-2">
                   <button
