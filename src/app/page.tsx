@@ -54,7 +54,6 @@ export default function OutilsWebPage() {
     scrapeType: string;
     crawlDepth: number;
     keywords: { include: string[]; exclude: string[] };
-    aiAutoScore: boolean;
   }) => {
     // Create job
     const job = await addJob({
@@ -63,7 +62,6 @@ export default function OutilsWebPage() {
       scrape_type: config.scrapeType,
       crawl_depth: config.crawlDepth,
       keywords: (config.keywords.include.length > 0 || config.keywords.exclude.length > 0) ? config.keywords : null,
-      ai_auto_score: config.aiAutoScore,
       total_urls: config.urls.length,
       completed_urls: 0,
       failed_urls: 0,

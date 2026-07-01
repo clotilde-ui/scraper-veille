@@ -12,7 +12,6 @@ interface NewJobConfig {
   scrapeType: string; // JSON array of ScrapeType[]
   crawlDepth: number;
   keywords: { include: string[]; exclude: string[] };
-  aiAutoScore: boolean;
 }
 
 export interface EditJobDefaults {
@@ -22,7 +21,6 @@ export interface EditJobDefaults {
   crawlDepth: number;
   keywordsInclude: string;
   keywordsExclude: string;
-  aiAutoScore: boolean;
 }
 
 interface ScraperNewJobModalProps {
@@ -43,7 +41,6 @@ export function ScraperNewJobModal({ isOpen, onClose, onSubmit, editDefaults }: 
   const [crawlDepth, setCrawlDepth] = useState(editDefaults?.crawlDepth ?? 1);
   const [keywordsText, setKeywordsText] = useState(editDefaults?.keywordsInclude ?? '');
   const [excludeKeywordsText, setExcludeKeywordsText] = useState(editDefaults?.keywordsExclude ?? '');
-  const [aiAutoScore, setAiAutoScore] = useState(editDefaults?.aiAutoScore ?? false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isEdit = !!editDefaults;
@@ -108,7 +105,6 @@ export function ScraperNewJobModal({ isOpen, onClose, onSubmit, editDefaults }: 
       keywords: needsKeywords
         ? { include: parsedKeywords, exclude: parsedExcludeKeywords }
         : { include: [], exclude: [] },
-      aiAutoScore,
     });
     // Reset
     setStep(1);
@@ -119,7 +115,6 @@ export function ScraperNewJobModal({ isOpen, onClose, onSubmit, editDefaults }: 
     setCrawlDepth(1);
     setKeywordsText('');
     setExcludeKeywordsText('');
-    setAiAutoScore(false);
     onClose();
   };
 
@@ -320,20 +315,6 @@ export function ScraperNewJobModal({ isOpen, onClose, onSubmit, editDefaults }: 
                 </div>
               )}
 
-              <label className="flex items-start gap-3 p-3 rounded-xl border-2 border-slate-200 dark:border-slate-600 cursor-pointer hover:border-slate-300 dark:hover:border-slate-500 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={aiAutoScore}
-                  onChange={e => setAiAutoScore(e.target.checked)}
-                  className="mt-0.5 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                />
-                <div>
-                  <p className="text-sm font-medium text-slate-900 dark:text-white">Scoring IA automatique</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Noter automatiquement (de 0 à 10) la pertinence de chaque correspondance de mots-clés à la fin du scraping. Tu pourras aussi le lancer manuellement depuis l&apos;onglet Résultats.
-                  </p>
-                </div>
-              </label>
             </>
           )}
 
