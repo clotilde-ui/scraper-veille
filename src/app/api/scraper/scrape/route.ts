@@ -3,9 +3,11 @@ import { db } from '@/lib/db';
 import { scrapeJobs, scrapeUrls, scrapeResults } from '@/lib/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import * as cheerio from 'cheerio';
-import { compileBooleanQuery, extractTerms, isBooleanQuery } from '@/lib/booleanQuery';
+import { compileBooleanQuery, extractTerms, isBooleanQuery, normalizeApostrophes } from '@/lib/booleanQuery';
 
 const FETCH_TIMEOUT = 15000;
+// Nombre de caractères capturés de part et d'autre du mot-clé pour le contexte.
+const CONTEXT_RADIUS = 300;
 
 const DOWNLOAD_EXTENSIONS = [
   '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
@@ -255,6 +257,9 @@ export async function POST(request: Request) {
       if (keywords && keywords.length > 0) {
         $('script, style, noscript').remove();
         const bodyText = $('body').text().replace(/\s+/g, ' ').trim();
+        // Texte normalisé (apostrophes + minuscules) pour la RECHERCHE.
+        // Normalisation 1 pour 1 : les index restent valides sur bodyText.
+        const normBody = normalizeApostrophes(bodyText.toLowerCase());
         for (const keyword of keywords) {
           if (!keyword.trim()) continue;
 
@@ -263,32 +268,38 @@ export async function POST(request: Request) {
             const evaluate = compileBooleanQuery(keyword);
             if (evaluate(bodyText)) {
               const terms = extractTerms(keyword);
-              // Find context around the first matching term
-              const firstTerm = terms.find(t => bodyText.toLowerCase().includes(t.toLowerCase()));
+              const matchedTerms = terms.filter(t => normBody.includes(normalizeApostrophes(t.toLowerCase())));
+              const firstTerm = matchedTerms[0];
               let context = '';
               if (firstTerm) {
-                const idx = bodyText.toLowerCase().indexOf(firstTerm.toLowerCase());
-                const start = Math.max(0, idx - 100);
-                const end = Math.min(bodyText.length, idx + firstTerm.length + 100);
+                const idx = normBody.indexOf(normalizeApostrophes(firstTerm.toLowerCase()));
+                const start = Math.max(0, idx - CONTEXT_RADIUS);
+                const end = Math.min(bodyText.length, idx + firstTerm.length + CONTEXT_RADIUS);
                 context = `...${bodyText.substring(start, end).trim()}...`;
               }
-              addResult('keyword_match', keyword, null, context || null, {
+              // Le(s) mot(s)-clé(s) réellement trouvé(s) servent de valeur ET de
+              // label ; la requête booléenne complète reste dans les métadonnées.
+              const matchedValue = matchedTerms.length ? matchedTerms.join(', ') : keyword;
+              addResult('keyword_match', matchedValue, matchedValue, context || null, {
                 pageUrl: foundPageUrl,
                 pageTitle,
                 booleanQuery: true,
+                query: keyword,
               });
             }
           } else {
             // Simple keyword: search all occurrences
-            const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const escapedKeyword = normalizeApostrophes(keyword).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const regex = new RegExp(escapedKeyword, 'gi');
             let match;
             let matchCount = 0;
-            while ((match = regex.exec(bodyText)) !== null && matchCount < 10) {
-              const start = Math.max(0, match.index - 100);
-              const end = Math.min(bodyText.length, match.index + keyword.length + 100);
+            // Recherche sur normBody ; match.index reste valide sur bodyText.
+            while ((match = regex.exec(normBody)) !== null && matchCount < 10) {
+              const start = Math.max(0, match.index - CONTEXT_RADIUS);
+              const end = Math.min(bodyText.length, match.index + keyword.length + CONTEXT_RADIUS);
               const context = bodyText.substring(start, end).trim();
-              addResult('keyword_match', keyword, null, `...${context}...`, {
+              // Le mot-clé précis qui a matché est aussi placé dans la colonne Label.
+              addResult('keyword_match', keyword, keyword, `...${context}...`, {
                 pageUrl: foundPageUrl,
                 pageTitle,
                 position: match.index,
