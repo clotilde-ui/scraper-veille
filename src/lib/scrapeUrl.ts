@@ -184,10 +184,11 @@ export async function scrapeUrl(params: ScrapeUrlParams): Promise<ScrapeUrlResul
             const idx = bodyText.toLowerCase().indexOf(firstTerm.toLowerCase());
             context = `...${bodyText.substring(Math.max(0, idx - 100), Math.min(bodyText.length, idx + firstTerm.length + 100)).trim()}...`;
           }
-          // On stocke le(s) mot(s)-clé(s) réellement trouvé(s) comme valeur,
-          // et on conserve la requête booléenne complète dans les métadonnées.
+          // On stocke le(s) mot(s)-clé(s) réellement trouvé(s) comme valeur ET
+          // dans le label (colonne Label), et on conserve la requête booléenne
+          // complète dans les métadonnées.
           const matchedValue = matchedTerms.length ? matchedTerms.join(', ') : keyword;
-          addResult('keyword_match', matchedValue, null, context || null, { pageUrl: foundPageUrl, pageTitle, booleanQuery: true, query: keyword });
+          addResult('keyword_match', matchedValue, matchedValue, context || null, { pageUrl: foundPageUrl, pageTitle, booleanQuery: true, query: keyword });
         }
       } else {
         const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -197,7 +198,8 @@ export async function scrapeUrl(params: ScrapeUrlParams): Promise<ScrapeUrlResul
         while ((match = regex.exec(bodyText)) !== null && matchCount < 10) {
           const start = Math.max(0, match.index - 100);
           const end = Math.min(bodyText.length, match.index + keyword.length + 100);
-          addResult('keyword_match', keyword, null, `...${bodyText.substring(start, end).trim()}...`, { pageUrl: foundPageUrl, pageTitle, position: match.index, matchNumber: matchCount + 1 });
+          // Le mot-clé précis qui a matché est aussi placé dans la colonne Label.
+          addResult('keyword_match', keyword, keyword, `...${bodyText.substring(start, end).trim()}...`, { pageUrl: foundPageUrl, pageTitle, position: match.index, matchNumber: matchCount + 1 });
           matchCount++;
         }
       }
