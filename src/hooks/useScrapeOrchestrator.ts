@@ -33,11 +33,14 @@ export function useScrapeOrchestrator() {
   const pausedRef = useRef(false);
 
   const apiPatch = async (path: string, data: Record<string, unknown>) => {
-    await fetch(path, {
+    const res = await fetch(path, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
+    if (!res.ok) {
+      throw new Error(`Echec de la requete PATCH ${path} (${res.status})`);
+    }
   };
 
   const processJob = useCallback(async (config: OrchestratorConfig, isResume = false) => {
@@ -48,13 +51,13 @@ export function useScrapeOrchestrator() {
     pausedRef.current = false;
     abortRef.current = new AbortController();
 
-    // Mark job as running
-    await apiPatch(`/api/scraper/jobs/${jobId}`, {
-      status: 'running',
-      ...(!isResume ? { startedAt: new Date().toISOString() } : {}),
-    });
-
     try {
+      // Mark job as running
+      await apiPatch(`/api/scraper/jobs/${jobId}`, {
+        status: 'running',
+        ...(!isResume ? { startedAt: new Date().toISOString() } : {}),
+      });
+
       for (let depth = 0; depth <= crawlDepth - 1; depth++) {
         if (abortRef.current?.signal.aborted) break;
 
@@ -214,7 +217,7 @@ export function useScrapeOrchestrator() {
   }, []);
 
   const start = useCallback((config: OrchestratorConfig) => {
-    processJob(config, false);
+    return processJob(config, false);
   }, [processJob]);
 
   const pause = useCallback(async (jobId: string) => {
