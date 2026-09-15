@@ -13,6 +13,7 @@ import { ScraperUrlList } from '@/components/scraper/ScraperUrlList';
 import { ScraperResultsView } from '@/components/scraper/ScraperResultsView';
 import { ScraperResultExport } from '@/components/scraper/ScraperResultExport';
 import { ScraperNewJobModal } from '@/components/scraper/ScraperNewJobModal';
+import { toast } from 'sonner';
 import type { EditJobDefaults } from '@/components/scraper/ScraperNewJobModal';
 import { SCRAPE_TYPES } from '@/types';
 import type { ScrapeJobStatus, ScrapeType } from '@/types';
@@ -129,16 +130,22 @@ export default function ScrapeJobDetailPage() {
   }, [isScrapingActive, fetchJobs, fetchUrls, fetchResults]);
 
   // Auto-start when job is pending and we navigate to the page
-  const handleStart = useCallback(() => {
+  const handleStart = useCallback(async () => {
     if (!job) return;
-    orchestrator.start({
-      jobId: job.id,
-      scrapeType: job.scrape_type,
-      crawlDepth: job.crawl_depth,
-      keywords: job.keywords?.include || [],
-      excludeKeywords: job.keywords?.exclude || [],
-    });
-  }, [job, orchestrator]);
+    try {
+      await orchestrator.start({
+        jobId: job.id,
+        scrapeType: job.scrape_type,
+        crawlDepth: job.crawl_depth,
+        keywords: job.keywords?.include || [],
+        excludeKeywords: job.keywords?.exclude || [],
+      });
+      await fetchJobs(false);
+    } catch (err) {
+      console.error('Erreur au lancement du scraping:', err);
+      toast.error('Impossible de lancer le scraping');
+    }
+  }, [job, orchestrator, fetchJobs]);
 
   const handlePause = useCallback(() => {
     if (!job) return;
