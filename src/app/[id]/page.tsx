@@ -406,6 +406,7 @@ export default function ScrapeJobDetailPage() {
         <ScraperResultsView
           results={results}
           isLoading={resultsLoading}
+          jobId={job.id}
           webhookUrl={webhookUrl || job.google_sheets_webhook_url || undefined}
           onSendToSheets={() => sendToGoogleSheets()}
           sheetsSending={sheetsSending}
@@ -414,6 +415,8 @@ export default function ScrapeJobDetailPage() {
           scoring={scoring}
           scoreRemaining={scoreRemaining}
           scoreError={scoreError}
+          aiPrompt={job.ai_prompt}
+          onPromptSaved={() => fetchJobs(false)}
         />
       )}
 
