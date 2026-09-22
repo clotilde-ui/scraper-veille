@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
-import { ExternalLink, Copy, Check, Table2, Sparkles, ArrowDown, ArrowUp } from 'lucide-react';
+import { ExternalLink, Copy, Check, Table2, Sparkles, ArrowDown, ArrowUp, Settings2 } from 'lucide-react';
 import { ResultTypeBadge } from './ScraperStatusBadge';
+import { ScraperAiPromptModal } from './ScraperAiPromptModal';
 import { Pagination } from '@/components/Pagination';
 import { SCRAPE_RESULT_TYPES } from '@/types';
 import type { ScrapeResultRow } from '@/hooks/useSupabaseScrapeResults';
@@ -33,10 +34,13 @@ interface ScraperResultsViewProps {
   scoring?: boolean;
   scoreRemaining?: number | null;
   scoreError?: string | null;
+  aiPrompt?: string | null;
+  onPromptSaved?: (newPrompt: string | null) => void;
 }
 
-export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToSheets, sheetsSending, sheetsSendStatus, onScore, scoring, scoreRemaining, scoreError }: ScraperResultsViewProps) {
+export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSendToSheets, sheetsSending, sheetsSendStatus, onScore, scoring, scoreRemaining, scoreError, aiPrompt, onPromptSaved }: ScraperResultsViewProps) {
   const [activeTab, setActiveTab] = useState<ScrapeResultType | 'all'>('all');
+  const [promptModalOpen, setPromptModalOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
@@ -234,6 +238,16 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
         {onScore && hasKeywordResults && (
           <>
             {scoreError && <span className="text-xs text-red-500" title={scoreError}>Erreur analyse IA</span>}
+            {jobId && (
+              <button
+                onClick={() => setPromptModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                title="Personnaliser les instructions d'analyse IA pour ce job"
+              >
+                <Settings2 className="w-3.5 h-3.5" />
+                Prompt IA
+              </button>
+            )}
             {selectedIds.size > 0 && (
               <button
                 onClick={() => setSelectedIds(new Set())}
@@ -431,6 +445,16 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
         onPageChange={setCurrentPage}
         onItemsPerPageChange={(v) => { setItemsPerPage(v); setCurrentPage(1); }}
       />
+
+      {jobId && promptModalOpen && (
+        <ScraperAiPromptModal
+          isOpen={promptModalOpen}
+          onClose={() => setPromptModalOpen(false)}
+          jobId={jobId}
+          initialPrompt={aiPrompt ?? null}
+          onSaved={newPrompt => onPromptSaved?.(newPrompt)}
+        />
+      )}
     </div>
   );
 }

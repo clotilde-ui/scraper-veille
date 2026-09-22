@@ -58,6 +58,9 @@ export async function PATCH(
     if (body.finishedAt !== undefined) updateData.finishedAt = body.finishedAt;
     if (body.finished_at !== undefined) updateData.finishedAt = body.finished_at;
     if (body.googleSheetsWebhookUrl !== undefined) updateData.googleSheetsWebhookUrl = body.googleSheetsWebhookUrl;
+    if (body.aiAutoScore !== undefined) updateData.aiAutoScore = body.aiAutoScore ? 1 : 0;
+    if (body.aiPrompt !== undefined) updateData.aiPrompt = body.aiPrompt || null;
+    if (body.ai_prompt !== undefined) updateData.aiPrompt = body.ai_prompt || null;
     if (body.schedule !== undefined) updateData.schedule = body.schedule;
     if (body.nextRunAt !== undefined) updateData.nextRunAt = body.nextRunAt;
 

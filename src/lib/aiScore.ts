@@ -2,16 +2,20 @@ import { db } from '@/lib/db';
 import { scrapeResults, scrapeJobs, appSettings } from '@/lib/db/schema';
 import { eq, and, isNull, inArray, sql, type SQL } from 'drizzle-orm';
 import { DEFAULT_AI_MODEL } from '@/lib/aiModels';
+import { DEFAULT_AI_INSTRUCTIONS } from '@/lib/aiPromptDefaults';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 interface JobContext {
   name: string;
   keywordsInclude: string[];
+  aiPrompt: string | null;
 }
 
-// Construit le prompt de qualification (barème /10). Générique : basé sur le
-// nom du job et ses mots-clés, pas sur un métier particulier.
+// Construit le prompt de qualification (barème /10). Les infos dynamiques
+// (source, mots-clés, contexte) et la contrainte de format de reponse sont
+// toujours fixes ; seules les instructions d'evaluation sont personnalisables
+// par job (job.aiPrompt), sinon on retombe sur le barème générique par défaut.
 function buildPrompt(job: JobContext, value: string, context: string | null, sourceUrl: string | null): string {
   const infos = [
     sourceUrl ? `Source : ${sourceUrl}` : '',
@@ -20,17 +24,13 @@ function buildPrompt(job: JobContext, value: string, context: string | null, sou
     `Contexte : ${context || '(aucun)'}`,
   ].filter(Boolean).join('\n');
 
+  const instructions = (job.aiPrompt && job.aiPrompt.trim()) || DEFAULT_AI_INSTRUCTIONS;
+
   return `Tu qualifies un résultat de veille automatisée pour le projet "${job.name}".
 
 ${infos}
 
-En te basant SURTOUT sur le "Contexte" ci-dessus, attribue une note de 0 à 10 évaluant à quel point ce résultat correspond réellement au sujet recherché (et non une simple coïncidence de mots ou un contenu hors-sujet).
-
-Barème :
-- 9-10 : correspondance très pertinente et claire par rapport au sujet recherché
-- 6-8 : pertinent, à confirmer
-- 3-5 : incertain, signal faible ou ambigu
-- 0-2 : faux positif (coïncidence de mots, contenu sans rapport avec le sujet)
+${instructions}
 
 Réponds STRICTEMENT par un seul nombre entier de 0 à 10, sans aucun autre texte.`;
 }
@@ -115,6 +115,7 @@ export async function scoreJobBatch(jobId: string, limit = 10, resultIds?: strin
   const jobContext: JobContext = {
     name: job.name,
     keywordsInclude: job.keywords ? (JSON.parse(job.keywords)?.include ?? []) : [],
+    aiPrompt: job.aiPrompt ?? null,
   };
 
   const pending = await db

@@ -14,6 +14,7 @@ client.execute('ALTER TABLE scrape_jobs ADD COLUMN google_sheets_webhook_url TEX
 client.execute('ALTER TABLE scrape_jobs ADD COLUMN schedule TEXT').catch(() => {});
 client.execute('ALTER TABLE scrape_jobs ADD COLUMN next_run_at TEXT').catch(() => {});
 client.execute('ALTER TABLE scrape_jobs ADD COLUMN ai_auto_score INTEGER NOT NULL DEFAULT 0').catch(() => {});
+client.execute('ALTER TABLE scrape_jobs ADD COLUMN ai_prompt TEXT').catch(() => {});
 client.execute('ALTER TABLE scrape_results ADD COLUMN ai_score INTEGER').catch(() => {});
 client.execute(`CREATE TABLE IF NOT EXISTS app_settings (
   id TEXT PRIMARY KEY,

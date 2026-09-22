@@ -18,6 +18,7 @@ export const scrapeJobs = sqliteTable('scrape_jobs', {
   schedule: text('schedule'), // cron expression e.g. "0 9 * * 1"
   nextRunAt: text('next_run_at'),
   aiAutoScore: integer('ai_auto_score').notNull().default(0), // 0/1 : analyse IA auto en fin de scraping
+  aiPrompt: text('ai_prompt'), // instructions d'analyse IA personnalisees pour ce job (null = defaut)
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 });
