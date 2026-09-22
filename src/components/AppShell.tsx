@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LogOut } from 'lucide-react';
+import { LogOut, Settings } from 'lucide-react';
 
 const PUBLIC_ROUTES = ['/login'];
 
@@ -36,6 +36,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
 
           <div className="flex items-center gap-3">
+            <Link
+              href="/parametres"
+              className={`inline-flex items-center gap-1.5 text-sm px-2 py-1 rounded-md transition-colors ${
+                pathname.startsWith('/parametres')
+                  ? 'text-text-primary bg-surface-hover'
+                  : 'text-text-tertiary hover:text-text-primary hover:bg-surface-hover'
+              }`}
+            >
+              <Settings className="w-4 h-4" />
+              <span className="hidden sm:inline">Paramètres</span>
+            </Link>
             <button
               type="button"
               onClick={handleLogout}

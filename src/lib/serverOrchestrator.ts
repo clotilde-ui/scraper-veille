@@ -2,6 +2,7 @@ import { db } from '@/lib/db';
 import { scrapeJobs, scrapeUrls } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { scrapeUrl, updateJobCounters } from '@/lib/scrapeUrl';
+import { scoreJobBatch } from '@/lib/aiScore';
 
 const MAX_DISCOVERED_PER_DEPTH = 50;
 const CONCURRENCY = 3;
@@ -85,6 +86,21 @@ export async function runJobServerSide(jobId: string): Promise<void> {
       failedUrls: failedCount,
       updatedAt: new Date().toISOString(),
     }).where(eq(scrapeJobs.id, jobId));
+
+    // Analyse IA automatique en fin de scraping (si activée sur le job)
+    if (job.aiAutoScore) {
+      try {
+        let guard = 0;
+        let remaining = Infinity;
+        while (remaining > 0 && guard++ < 500) {
+          const r = await scoreJobBatch(jobId, 10);
+          remaining = r.remaining;
+          if (r.error) { console.error('Analyse IA auto interrompue:', r.error); break; }
+        }
+      } catch (e) {
+        console.error('Erreur analyse IA auto serveur:', e);
+      }
+    }
   } catch (err) {
     console.error('Erreur orchestration serveur:', err);
     await db.update(scrapeJobs).set({ status: 'failed', errorMessage: (err as Error)?.message || 'Erreur inconnue', finishedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }).where(eq(scrapeJobs.id, jobId));
