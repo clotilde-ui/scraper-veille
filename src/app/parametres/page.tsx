@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { KeyRound, Sparkles } from 'lucide-react';
+import { KeyRound, Sparkles, ShieldOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AI_MODEL_OPTIONS, DEFAULT_AI_MODEL } from '@/lib/aiModels';
@@ -12,6 +12,7 @@ export default function SettingsPage() {
   const [hasApiKey, setHasApiKey] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [aiModel, setAiModel] = useState(DEFAULT_AI_MODEL);
+  const [excludedDomainsInput, setExcludedDomainsInput] = useState('');
 
   const fetchSettings = useCallback(async () => {
     setLoading(true);
@@ -21,6 +22,7 @@ export default function SettingsPage() {
         const data = await res.json();
         setHasApiKey(Boolean(data.hasApiKey));
         setAiModel(data.aiModel || DEFAULT_AI_MODEL);
+        setExcludedDomainsInput(Array.isArray(data.excludedDomains) ? data.excludedDomains.join('\n') : '');
       }
     } finally {
       setLoading(false);
@@ -32,10 +34,14 @@ export default function SettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      const excludedDomains = excludedDomainsInput
+        .split('\n')
+        .map(d => d.trim())
+        .filter(d => d !== '');
       const res = await fetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: apiKeyInput, aiModel }),
+        body: JSON.stringify({ apiKey: apiKeyInput, aiModel, excludedDomains }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -45,6 +51,7 @@ export default function SettingsPage() {
       const data = await res.json();
       setHasApiKey(Boolean(data.hasApiKey));
       setApiKeyInput('');
+      setExcludedDomainsInput(Array.isArray(data.excludedDomains) ? data.excludedDomains.join('\n') : '');
       toast.success('Paramètres enregistrés');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur lors de la sauvegarde des paramètres', { duration: 10000 });
@@ -147,15 +154,36 @@ export default function SettingsPage() {
           </p>
         </div>
 
-        <div className="flex justify-end pt-2">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors"
-          >
-            {saving ? 'Sauvegarde...' : 'Enregistrer'}
-          </button>
+      </div>
+
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <ShieldOff className="w-5 h-5 text-red-500" />
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Liste noire de domaines</h2>
         </div>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Ces domaines ne seront plus jamais scrapés, quel que soit le job (utile pour exclure des sites déjà vérifiés comme non pertinents dans une veille récurrente).
+        </p>
+        <textarea
+          value={excludedDomainsInput}
+          onChange={e => setExcludedDomainsInput(e.target.value)}
+          placeholder={"exemple.fr\nautre-site.com"}
+          rows={5}
+          className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+        />
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Un domaine par ligne (ex : <span className="font-mono">exemple.fr</span>). Exclut aussi ses sous-domaines.
+        </p>
+      </div>
+
+      <div className="flex justify-end">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors"
+        >
+          {saving ? 'Sauvegarde...' : 'Enregistrer'}
+        </button>
       </div>
     </div>
   );

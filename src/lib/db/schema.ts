@@ -56,5 +56,6 @@ export const appSettings = sqliteTable('app_settings', {
   id: text('id').primaryKey(), // ligne unique, id = 'global'
   openrouterApiKey: text('openrouter_api_key'),
   aiModel: text('ai_model'),
+  excludedDomains: text('excluded_domains'), // JSON array de domaines a ne jamais scraper (liste noire globale)
   updatedAt: text('updated_at').notNull(),
 });

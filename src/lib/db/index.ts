@@ -17,6 +17,7 @@ client.execute('ALTER TABLE scrape_jobs ADD COLUMN ai_auto_score INTEGER NOT NUL
 client.execute('ALTER TABLE scrape_jobs ADD COLUMN ai_prompt TEXT').catch(() => {});
 client.execute('ALTER TABLE scrape_results ADD COLUMN ai_score INTEGER').catch(() => {});
 client.execute('ALTER TABLE scrape_jobs ADD COLUMN template_job_id TEXT').catch(() => {});
+client.execute('ALTER TABLE app_settings ADD COLUMN excluded_domains TEXT').catch(() => {});
 client.execute(`CREATE TABLE IF NOT EXISTS app_settings (
   id TEXT PRIMARY KEY,
   openrouter_api_key TEXT,
