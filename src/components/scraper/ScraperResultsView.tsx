@@ -113,6 +113,12 @@ export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSe
     [results, activeTab]
   );
 
+  // Un label identique a la valeur (cas des correspondances de mots-cles) n'apporte
+  // aucune information : on ne le compte pas comme un "vrai" label pour eviter une
+  // colonne redondante avec "Valeur".
+  const isMeaningfulLabel = (r: ScrapeResultRow) =>
+    Boolean(r.label && String(r.label).trim() !== '' && r.label !== r.value);
+
   const hasActiveColumnFilters = columnFilters.site !== '' || columnFilters.valeur !== ''
     || columnFilters.label !== '' || columnFilters.contexte !== '' || columnFilters.score !== 'all';
 
@@ -123,7 +129,7 @@ export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSe
     return filtered.filter(r => {
       if (!matches(r.source_url, columnFilters.site)) return false;
       if (!matches(r.value, columnFilters.valeur)) return false;
-      if (!matches(r.label, columnFilters.label)) return false;
+      if (!matches(isMeaningfulLabel(r) ? r.label : null, columnFilters.label)) return false;
       if (!matches(r.context, columnFilters.contexte)) return false;
       if (columnFilters.score !== 'all') {
         const s = r.ai_score;
@@ -150,7 +156,7 @@ export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSe
       case 'site': return r.source_url ? formatSourceUrl(r.source_url) : '';
       case 'type': return r.result_type;
       case 'valeur': return r.value ?? '';
-      case 'label': return r.label ?? '';
+      case 'label': return isMeaningfulLabel(r) ? (r.label ?? '') : '';
       case 'contexte': return r.context ?? '';
       default: return '';
     }
@@ -193,7 +199,7 @@ export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSe
   };
 
   // Masque la colonne Label quand aucun résultat n'en a (ex: scraping 100% mots-clés)
-  const hasLabels = useMemo(() => results.some(r => r.label && String(r.label).trim() !== ''), [results]);
+  const hasLabels = useMemo(() => results.some(isMeaningfulLabel), [results]);
 
   // Largeur totale du tableau = somme des colonnes affichées, pour permettre
   // un defilement horizontal quand elle depasse le conteneur (au lieu de
@@ -558,7 +564,7 @@ export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSe
                 </td>
                 {hasLabels && (
                   <td className="px-4 py-2 align-top text-sm text-slate-500 dark:text-slate-400 truncate max-w-[12rem]">
-                    {result.label || '—'}
+                    {isMeaningfulLabel(result) ? result.label : '—'}
                   </td>
                 )}
                 <td className="px-4 py-2 text-xs text-slate-500 dark:text-slate-400 max-w-md align-top">
