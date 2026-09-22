@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
-import { ExternalLink, Copy, Check, Table2, Sparkles, ArrowDown, ArrowUp, Settings2, Filter, Zap } from 'lucide-react';
+import { ExternalLink, Copy, Check, Table2, Sparkles, ArrowDown, ArrowUp, Settings2, Filter, Zap, Download } from 'lucide-react';
 import { ResultTypeBadge } from './ScraperStatusBadge';
 import { ScraperAiPromptModal } from './ScraperAiPromptModal';
 import { Pagination } from '@/components/Pagination';
 import { SCRAPE_RESULT_TYPES } from '@/types';
 import type { ScrapeResultRow } from '@/hooks/useSupabaseScrapeResults';
 import type { ScrapeResultType } from '@/types';
+import { exportScrapeResultsCsv } from '@/lib/export';
 
 const MIN_COL_WIDTH = 80;
 const CHECKBOX_COL_WIDTH = 40;
@@ -50,9 +51,10 @@ interface ScraperResultsViewProps {
   aiPrompt?: string | null;
   onPromptSaved?: (newPrompt: string | null) => void;
   hasPreviousRun?: boolean;
+  jobName?: string;
 }
 
-export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSendToSheets, sheetsSending, sheetsSendStatus, onScore, scoring, scoreRemaining, scoreError, aiPrompt, onPromptSaved, hasPreviousRun }: ScraperResultsViewProps) {
+export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSendToSheets, sheetsSending, sheetsSendStatus, onScore, scoring, scoreRemaining, scoreError, aiPrompt, onPromptSaved, hasPreviousRun, jobName }: ScraperResultsViewProps) {
   const [activeTab, setActiveTab] = useState<ScrapeResultType | 'all'>('all');
   const [promptModalOpen, setPromptModalOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -390,12 +392,26 @@ export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSe
               </button>
             )}
             {selectedIds.size > 0 && (
-              <button
-                onClick={() => setSelectedIds(new Set())}
-                className="text-xs text-slate-500 dark:text-slate-400 hover:underline"
-              >
-                Tout désélectionner
-              </button>
+              <>
+                <button
+                  onClick={() => setSelectedIds(new Set())}
+                  className="text-xs text-slate-500 dark:text-slate-400 hover:underline"
+                >
+                  Tout désélectionner
+                </button>
+                <button
+                  onClick={() => {
+                    const selectedResults = results.filter(r => selectedIds.has(r.id));
+                    const safeJobName = (jobName || 'export').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 50);
+                    exportScrapeResultsCsv(selectedResults, `scraping_${safeJobName}_selection`);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                  title="Exporter uniquement les lignes sélectionnées en CSV"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Exporter la sélection ({selectedIds.size})
+                </button>
+              </>
             )}
             <button
               onClick={() => onScore(selectedIds.size > 0 ? Array.from(selectedIds) : undefined)}

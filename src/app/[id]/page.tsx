@@ -450,6 +450,7 @@ export default function ScrapeJobDetailPage() {
           aiPrompt={job.ai_prompt}
           onPromptSaved={() => fetchJobs(false)}
           hasPreviousRun={hasPreviousRun}
+          jobName={job.name}
         />
       )}
 
