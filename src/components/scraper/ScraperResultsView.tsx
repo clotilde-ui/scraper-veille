@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
-import { ExternalLink, Copy, Check, Table2, Sparkles, ArrowDown, ArrowUp, Settings2 } from 'lucide-react';
+import { ExternalLink, Copy, Check, Table2, Sparkles, ArrowDown, ArrowUp, Settings2, Filter } from 'lucide-react';
 import { ResultTypeBadge } from './ScraperStatusBadge';
 import { ScraperAiPromptModal } from './ScraperAiPromptModal';
 import { Pagination } from '@/components/Pagination';
@@ -23,6 +23,17 @@ const DEFAULT_COL_WIDTHS = {
 };
 
 type ColKey = keyof typeof DEFAULT_COL_WIDTHS;
+type SortColumn = 'site' | 'type' | 'valeur' | 'label' | 'contexte' | 'score';
+
+interface ColumnFilters {
+  site: string;
+  valeur: string;
+  label: string;
+  contexte: string;
+  score: 'all' | 'high' | 'mid' | 'low' | 'none';
+}
+
+const EMPTY_FILTERS: ColumnFilters = { site: '', valeur: '', label: '', contexte: '', score: 'all' };
 
 interface ScraperResultsViewProps {
   results: ScrapeResultRow[];
@@ -47,7 +58,10 @@ export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSe
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [expandedContextIds, setExpandedContextIds] = useState<Set<string>>(new Set());
-  const [sortScore, setSortScore] = useState<'none' | 'desc' | 'asc'>('none');
+  const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [showFilters, setShowFilters] = useState(false);
+  const [columnFilters, setColumnFilters] = useState<ColumnFilters>(EMPTY_FILTERS);
   const [colWidths, setColWidths] = useState<Record<ColKey, number>>(DEFAULT_COL_WIDTHS);
   const resizingRef = useRef<{ key: ColKey; startX: number; startWidth: number } | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -99,13 +113,73 @@ export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSe
     [results, activeTab]
   );
 
+  const hasActiveColumnFilters = columnFilters.site !== '' || columnFilters.valeur !== ''
+    || columnFilters.label !== '' || columnFilters.contexte !== '' || columnFilters.score !== 'all';
+
+  const filteredByColumns = useMemo(() => {
+    if (!hasActiveColumnFilters) return filtered;
+    const matches = (haystack: string | null | undefined, needle: string) =>
+      !needle || (haystack || '').toLowerCase().includes(needle.toLowerCase());
+    return filtered.filter(r => {
+      if (!matches(r.source_url, columnFilters.site)) return false;
+      if (!matches(r.value, columnFilters.valeur)) return false;
+      if (!matches(r.label, columnFilters.label)) return false;
+      if (!matches(r.context, columnFilters.contexte)) return false;
+      if (columnFilters.score !== 'all') {
+        const s = r.ai_score;
+        if (columnFilters.score === 'high' && !(s != null && s >= 7)) return false;
+        if (columnFilters.score === 'mid' && !(s != null && s >= 4 && s < 7)) return false;
+        if (columnFilters.score === 'low' && !(s != null && s >= 0 && s < 4)) return false;
+        if (columnFilters.score === 'none' && s != null) return false;
+      }
+      return true;
+    });
+  }, [filtered, columnFilters, hasActiveColumnFilters]);
+
+  const formatSourceUrl = (sourceUrl: string) => {
+    try {
+      const parsed = new URL(sourceUrl);
+      return parsed.hostname + parsed.pathname;
+    } catch {
+      return sourceUrl;
+    }
+  };
+
+  const getSortValue = (r: ScrapeResultRow, col: SortColumn): string => {
+    switch (col) {
+      case 'site': return r.source_url ? formatSourceUrl(r.source_url) : '';
+      case 'type': return r.result_type;
+      case 'valeur': return r.value ?? '';
+      case 'label': return r.label ?? '';
+      case 'contexte': return r.context ?? '';
+      default: return '';
+    }
+  };
+
   const sorted = useMemo(() => {
-    if (sortScore === 'none') return filtered;
-    const rank = (v: number | null) => (v === null || v < 0 ? -1 : v);
-    return [...filtered].sort((a, b) =>
-      sortScore === 'desc' ? rank(b.ai_score) - rank(a.ai_score) : rank(a.ai_score) - rank(b.ai_score)
-    );
-  }, [filtered, sortScore]);
+    if (!sortColumn) return filteredByColumns;
+    const dir = sortDirection === 'asc' ? 1 : -1;
+    return [...filteredByColumns].sort((a, b) => {
+      if (sortColumn === 'score') {
+        const rank = (v: number | null | undefined) => (v == null || v < 0 ? -1 : v);
+        return (rank(a.ai_score) - rank(b.ai_score)) * dir;
+      }
+      return getSortValue(a, sortColumn).localeCompare(getSortValue(b, sortColumn), 'fr', { sensitivity: 'base' }) * dir;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredByColumns, sortColumn, sortDirection]);
+
+  const handleSortClick = (col: SortColumn) => {
+    if (sortColumn !== col) {
+      setSortColumn(col);
+      setSortDirection('desc');
+    } else if (sortDirection === 'desc') {
+      setSortDirection('asc');
+    } else {
+      setSortColumn(null);
+      setSortDirection('desc');
+    }
+  };
 
   const hasKeywordResults = useMemo(() => results.some(r => r.result_type === 'keyword_match'), [results]);
 
@@ -152,6 +226,11 @@ export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSe
     }
   }, [allOnPageSelected, someOnPageSelected]);
 
+  const updateColumnFilter = <K extends keyof ColumnFilters>(key: K, value: ColumnFilters[K]) => {
+    setColumnFilters(prev => ({ ...prev, [key]: value }));
+    setCurrentPage(1);
+  };
+
   const toggleSelectAllOnPage = () => {
     setSelectedIds(prev => {
       const next = new Set(prev);
@@ -175,15 +254,6 @@ export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSe
 
   const activeTypes = SCRAPE_RESULT_TYPES.filter(t => counts[t.value] > 0);
 
-  const formatSourceUrl = (sourceUrl: string) => {
-    try {
-      const parsed = new URL(sourceUrl);
-      return parsed.hostname + parsed.pathname;
-    } catch {
-      return sourceUrl;
-    }
-  };
-
   const copyValue = async (id: string, value: string) => {
     await navigator.clipboard.writeText(value);
     setCopiedId(id);
@@ -194,6 +264,18 @@ export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSe
     setActiveTab(tab);
     setCurrentPage(1);
   };
+
+  const renderSortButton = (col: SortColumn, label: string, title?: string) => (
+    <button
+      onClick={() => handleSortClick(col)}
+      className="inline-flex items-center gap-1 uppercase hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+      title={title || `Trier par ${label}`}
+    >
+      {label}
+      {sortColumn === col && sortDirection === 'desc' && <ArrowDown className="w-3 h-3" />}
+      {sortColumn === col && sortDirection === 'asc' && <ArrowUp className="w-3 h-3" />}
+    </button>
+  );
 
   const renderScore = (result: ScrapeResultRow) => {
     if (result.result_type !== 'keyword_match') return <span className="text-sm text-slate-300 dark:text-slate-600">—</span>;
@@ -246,6 +328,25 @@ export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSe
         ))}
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
+        {hasActiveColumnFilters && (
+          <button
+            onClick={() => { setColumnFilters(EMPTY_FILTERS); setCurrentPage(1); }}
+            className="text-xs text-slate-500 dark:text-slate-400 hover:underline"
+          >
+            Réinitialiser les filtres
+          </button>
+        )}
+        <button
+          onClick={() => setShowFilters(prev => !prev)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+            showFilters || hasActiveColumnFilters
+              ? 'bg-blue-500 text-white'
+              : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+          }`}
+        >
+          <Filter className="w-3.5 h-3.5" />
+          Filtres
+        </button>
         {onScore && hasKeywordResults && (
           <>
             {scoreError && <span className="text-xs text-red-500" title={scoreError}>Erreur analyse IA</span>}
@@ -318,41 +419,93 @@ export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSe
                 )}
               </th>
               <th style={{ width: colWidths.site }} className="relative px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">
-                Site scrapé
+                {renderSortButton('site', 'Site scrapé')}
                 {renderResizeHandle('site')}
               </th>
               <th style={{ width: colWidths.type }} className="relative px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">
-                Type
+                {renderSortButton('type', 'Type')}
                 {renderResizeHandle('type')}
               </th>
               <th style={{ width: colWidths.valeur }} className="relative px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">
-                Valeur
+                {renderSortButton('valeur', 'Valeur')}
                 {renderResizeHandle('valeur')}
               </th>
               {hasLabels && (
                 <th style={{ width: colWidths.label }} className="relative px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">
-                  Label
+                  {renderSortButton('label', 'Label')}
                   {renderResizeHandle('label')}
                 </th>
               )}
               <th style={{ width: colWidths.contexte }} className="relative px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">
-                Contexte
+                {renderSortButton('contexte', 'Contexte')}
                 {renderResizeHandle('contexte')}
               </th>
               <th style={{ width: colWidths.score }} className="relative px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">
-                <button
-                  onClick={() => setSortScore(prev => prev === 'desc' ? 'asc' : prev === 'asc' ? 'none' : 'desc')}
-                  className="inline-flex items-center gap-1 uppercase hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
-                  title="Trier par note IA"
-                >
-                  Score
-                  {sortScore === 'desc' && <ArrowDown className="w-3 h-3" />}
-                  {sortScore === 'asc' && <ArrowUp className="w-3 h-3" />}
-                </button>
+                {renderSortButton('score', 'Score', "Trier par note IA")}
                 {renderResizeHandle('score')}
               </th>
               <th className="px-4 py-2 w-20" />
             </tr>
+            {showFilters && (
+              <tr className="border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30">
+                <th className="px-4 py-2" />
+                <th className="px-4 py-2">
+                  <input
+                    type="text"
+                    value={columnFilters.site}
+                    onChange={e => updateColumnFilter('site', e.target.value)}
+                    placeholder="Filtrer..."
+                    className="w-full px-2 py-1 text-xs font-normal normal-case border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </th>
+                <th className="px-4 py-2" />
+                <th className="px-4 py-2">
+                  <input
+                    type="text"
+                    value={columnFilters.valeur}
+                    onChange={e => updateColumnFilter('valeur', e.target.value)}
+                    placeholder="Filtrer..."
+                    className="w-full px-2 py-1 text-xs font-normal normal-case border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </th>
+                {hasLabels && (
+                  <th className="px-4 py-2">
+                    <input
+                      type="text"
+                      value={columnFilters.label}
+                      onChange={e => updateColumnFilter('label', e.target.value)}
+                      placeholder="Filtrer..."
+                      className="w-full px-2 py-1 text-xs font-normal normal-case border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </th>
+                )}
+                <th className="px-4 py-2">
+                  <input
+                    type="text"
+                    value={columnFilters.contexte}
+                    onChange={e => updateColumnFilter('contexte', e.target.value)}
+                    placeholder="Filtrer..."
+                    className="w-full px-2 py-1 text-xs font-normal normal-case border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </th>
+                <th className="px-4 py-2">
+                  {hasKeywordResults && (
+                    <select
+                      value={columnFilters.score}
+                      onChange={e => updateColumnFilter('score', e.target.value as ColumnFilters['score'])}
+                      className="w-full px-2 py-1 text-xs font-normal normal-case border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="all">Tout</option>
+                      <option value="high">≥7 Pertinent</option>
+                      <option value="mid">4-6 Incertain</option>
+                      <option value="low">0-3 Faux positif</option>
+                      <option value="none">Non analysé</option>
+                    </select>
+                  )}
+                </th>
+                <th className="px-4 py-2" />
+              </tr>
+            )}
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
             {paginated.map(result => (
@@ -437,10 +590,12 @@ export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSe
                 </td>
               </tr>
             ))}
-            {filtered.length === 0 && (
+            {sorted.length === 0 && (
               <tr>
                 <td colSpan={hasLabels ? 8 : 7} className="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
-                  Aucun résultat{activeTab !== 'all' ? ' pour ce type' : ''}
+                  {hasActiveColumnFilters
+                    ? 'Aucun résultat ne correspond aux filtres'
+                    : `Aucun résultat${activeTab !== 'all' ? ' pour ce type' : ''}`}
                 </td>
               </tr>
             )}
