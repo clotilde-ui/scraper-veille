@@ -123,7 +123,8 @@ export default function ScrapeJobDetailPage() {
   }, [orchestrator.isRunning, job?.status, job?.google_sheets_webhook_url, webhookUrl, sendToGoogleSheets]);
 
   // Analyse IA : appelle la route par lots jusqu'à ce qu'il ne reste plus rien à analyser.
-  const scoreJob = useCallback(async () => {
+  // Si resultIds est fourni, ne traite que cette sélection ; sinon, tous les résultats non notés.
+  const scoreJob = useCallback(async (resultIds?: string[]) => {
     setScoring(true);
     setScoreError(null);
     setScoreRemaining(null);
@@ -133,7 +134,7 @@ export default function ScrapeJobDetailPage() {
         const res = await fetch(`/api/scraper/jobs/${jobId}/score`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ limit: 10 }),
+          body: JSON.stringify({ limit: 10, resultIds }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
