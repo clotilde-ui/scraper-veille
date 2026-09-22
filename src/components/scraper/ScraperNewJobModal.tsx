@@ -48,15 +48,24 @@ export function ScraperNewJobModal({ isOpen, onClose, onSubmit, editDefaults }: 
 
   const isEdit = !!editDefaults;
 
-  const isValidUrl = (line: string) => line.startsWith('http://') || line.startsWith('https://');
+  // Ajoute automatiquement https:// devant les lignes qui ressemblent à un
+  // nom de domaine sans protocole (ex: www.exemple.fr), pour éviter d'obliger
+  // l'utilisateur à corriger des URLs pourtant valides.
+  const normalizeUrl = (line: string): string | null => {
+    if (line.startsWith('http://') || line.startsWith('https://')) return line;
+    if (/^[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?$/i.test(line)) return `https://${line}`;
+    return null;
+  };
 
   const urlLines = urlsText.split('\n').map(line => line.trim());
 
-  const parsedUrls = urlLines.filter(line => line.length > 0 && isValidUrl(line));
+  const parsedUrls = urlLines
+    .map(normalizeUrl)
+    .filter((url): url is string => url !== null);
 
   const invalidUrlLines = urlLines
     .map((line, index) => ({ line, index }))
-    .filter(({ line }) => line.length > 0 && !isValidUrl(line));
+    .filter(({ line }) => line.length > 0 && normalizeUrl(line) === null);
 
   const updateUrlLine = (index: number, value: string) => {
     const lines = urlsText.split('\n');
@@ -87,7 +96,7 @@ export function ScraperNewJobModal({ isOpen, onClose, onSubmit, editDefaults }: 
 
     // Détecter header (si la première ligne ne ressemble pas à une URL)
     const firstLine = lines[0] || '';
-    const startIdx = (firstLine.startsWith('http://') || firstLine.startsWith('https://')) ? 0 : 1;
+    const startIdx = normalizeUrl(firstLine) !== null ? 0 : 1;
 
     const urls: string[] = [];
     for (let i = startIdx; i < lines.length; i++) {
@@ -95,8 +104,9 @@ export function ScraperNewJobModal({ isOpen, onClose, onSubmit, editDefaults }: 
       // Prendre la première colonne (CSV simple)
       const cols = line.split(',');
       const url = cols[0].replace(/^["']|["']$/g, '').trim();
-      if (url.startsWith('http://') || url.startsWith('https://')) {
-        urls.push(url);
+      const normalized = normalizeUrl(url);
+      if (normalized !== null) {
+        urls.push(normalized);
       }
     }
 
@@ -241,7 +251,7 @@ export function ScraperNewJobModal({ isOpen, onClose, onSubmit, editDefaults }: 
                     {invalidUrlLines.length} URL{invalidUrlLines.length > 1 ? 's' : ''} au format invalide (ignorée{invalidUrlLines.length > 1 ? 's' : ''} au lancement)
                   </div>
                   <p className="text-xs text-amber-600 dark:text-amber-400">
-                    Une URL doit commencer par <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">http://</code> ou <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">https://</code>. Corrige ou supprime les lignes ci-dessous.
+                    Une URL doit contenir un nom de domaine valide (ex : <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">exemple.fr</code> ou <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">https://exemple.fr</code>). Corrige ou supprime les lignes ci-dessous.
                   </p>
                   <div className="space-y-1.5">
                     {invalidUrlLines.map(({ line, index }) => (
