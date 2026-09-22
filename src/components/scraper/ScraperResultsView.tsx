@@ -10,6 +10,8 @@ import type { ScrapeResultRow } from '@/hooks/useSupabaseScrapeResults';
 import type { ScrapeResultType } from '@/types';
 
 const MIN_COL_WIDTH = 80;
+const CHECKBOX_COL_WIDTH = 40;
+const ACTIONS_COL_WIDTH = 80;
 
 const DEFAULT_COL_WIDTHS = {
   site: 256,
@@ -118,6 +120,15 @@ export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSe
 
   // Masque la colonne Label quand aucun résultat n'en a (ex: scraping 100% mots-clés)
   const hasLabels = useMemo(() => results.some(r => r.label && String(r.label).trim() !== ''), [results]);
+
+  // Largeur totale du tableau = somme des colonnes affichées, pour permettre
+  // un defilement horizontal quand elle depasse le conteneur (au lieu de
+  // comprimer les colonnes pour tenir dans 100%).
+  const totalTableWidth = useMemo(() => {
+    const columnsWidth = colWidths.site + colWidths.type + colWidths.valeur
+      + (hasLabels ? colWidths.label : 0) + colWidths.contexte + colWidths.score;
+    return CHECKBOX_COL_WIDTH + columnsWidth + ACTIONS_COL_WIDTH;
+  }, [colWidths, hasLabels]);
 
   // Pagination
   const paginated = useMemo(() =>
@@ -289,8 +300,8 @@ export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSe
       </div>
 
       {/* Results list */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
-        <table className="table-fixed" style={{ width: '100%' }}>
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-x-auto">
+        <table className="table-fixed" style={{ width: totalTableWidth, minWidth: '100%' }}>
           <thead className="border-b border-slate-200 dark:border-slate-700">
             <tr>
               <th className="px-4 py-2 w-10">
