@@ -22,6 +22,7 @@ export async function POST(
     if (body.scrapeType !== undefined) updateData.scrapeType = body.scrapeType;
     if (body.crawlDepth !== undefined) updateData.crawlDepth = body.crawlDepth;
     if (body.keywords !== undefined) updateData.keywords = body.keywords ? JSON.stringify(body.keywords) : null;
+    if (body.aiAutoScore !== undefined) updateData.aiAutoScore = body.aiAutoScore ? 1 : 0;
 
     // Supprimer tous les résultats
     await db.delete(scrapeResults).where(eq(scrapeResults.jobId, id));

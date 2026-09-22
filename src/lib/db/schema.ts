@@ -17,6 +17,7 @@ export const scrapeJobs = sqliteTable('scrape_jobs', {
   googleSheetsWebhookUrl: text('google_sheets_webhook_url'),
   schedule: text('schedule'), // cron expression e.g. "0 9 * * 1"
   nextRunAt: text('next_run_at'),
+  aiAutoScore: integer('ai_auto_score').notNull().default(0), // 0/1 : analyse IA auto en fin de scraping
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 });
@@ -45,5 +46,13 @@ export const scrapeResults = sqliteTable('scrape_results', {
   label: text('label'),
   context: text('context'),
   metadata: text('metadata'), // JSON object
+  aiScore: integer('ai_score'), // note IA /10 de pertinence (null = non analysé, -1 = échec/illisible)
   createdAt: text('created_at').notNull(),
+});
+
+export const appSettings = sqliteTable('app_settings', {
+  id: text('id').primaryKey(), // ligne unique, id = 'global'
+  openrouterApiKey: text('openrouter_api_key'),
+  aiModel: text('ai_model'),
+  updatedAt: text('updated_at').notNull(),
 });
