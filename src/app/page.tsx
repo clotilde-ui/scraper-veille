@@ -96,6 +96,9 @@ export default function OutilsWebPage() {
     });
 
     if (!res.ok) {
+      // Le job a déjà été créé : on le supprime pour ne pas laisser un job
+      // vide (total_urls renseigné mais aucune URL réelle) dans la liste.
+      await deleteJob(job.id);
       toast.error('Erreur lors de l\'insertion des URLs');
       return;
     }
@@ -104,7 +107,7 @@ export default function OutilsWebPage() {
 
     // Navigate to job detail
     router.push(`/${job.id}`);
-  }, [addJob, router]);
+  }, [addJob, deleteJob, router]);
 
   const handleDelete = useCallback(async (job: ScrapeJobRow) => {
     const confirmed = await confirm(
