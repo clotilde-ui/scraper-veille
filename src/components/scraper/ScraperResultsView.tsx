@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
-import { ExternalLink, Copy, Check, Table2, Sparkles, ArrowDown, ArrowUp, Settings2, Filter } from 'lucide-react';
+import { ExternalLink, Copy, Check, Table2, Sparkles, ArrowDown, ArrowUp, Settings2, Filter, Zap } from 'lucide-react';
 import { ResultTypeBadge } from './ScraperStatusBadge';
 import { ScraperAiPromptModal } from './ScraperAiPromptModal';
 import { Pagination } from '@/components/Pagination';
@@ -49,9 +49,10 @@ interface ScraperResultsViewProps {
   scoreError?: string | null;
   aiPrompt?: string | null;
   onPromptSaved?: (newPrompt: string | null) => void;
+  hasPreviousRun?: boolean;
 }
 
-export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSendToSheets, sheetsSending, sheetsSendStatus, onScore, scoring, scoreRemaining, scoreError, aiPrompt, onPromptSaved }: ScraperResultsViewProps) {
+export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSendToSheets, sheetsSending, sheetsSendStatus, onScore, scoring, scoreRemaining, scoreError, aiPrompt, onPromptSaved, hasPreviousRun }: ScraperResultsViewProps) {
   const [activeTab, setActiveTab] = useState<ScrapeResultType | 'all'>('all');
   const [promptModalOpen, setPromptModalOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -66,6 +67,7 @@ export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSe
   const resizingRef = useRef<{ key: ColKey; startX: number; startWidth: number } | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const selectAllRef = useRef<HTMLInputElement>(null);
+  const [newOnly, setNewOnly] = useState(false);
 
   const handleResizeStart = useCallback((key: ColKey, e: React.MouseEvent) => {
     e.preventDefault();
@@ -108,10 +110,10 @@ export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSe
     });
   };
 
-  const filtered = useMemo(() =>
-    activeTab === 'all' ? results : results.filter(r => r.result_type === activeTab),
-    [results, activeTab]
-  );
+  const filtered = useMemo(() => {
+    const byTab = activeTab === 'all' ? results : results.filter(r => r.result_type === activeTab);
+    return newOnly ? byTab.filter(r => r.is_new === true) : byTab;
+  }, [results, activeTab, newOnly]);
 
   // Un label identique a la valeur (cas des correspondances de mots-cles) n'apporte
   // aucune information : on ne le compte pas comme un "vrai" label pour eviter une
@@ -341,6 +343,20 @@ export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSe
         ))}
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
+        {hasPreviousRun && (
+          <button
+            onClick={() => { setNewOnly(prev => !prev); setCurrentPage(1); }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+              newOnly
+                ? 'bg-amber-500 text-white'
+                : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+            }`}
+            title="N'afficher que les résultats absents de l'exécution précédente de cette veille"
+          >
+            <Zap className="w-3.5 h-3.5" />
+            Nouveautés uniquement
+          </button>
+        )}
         {hasActiveColumnFilters && (
           <button
             onClick={() => { setColumnFilters(EMPTY_FILTERS); setCurrentPage(1); }}
@@ -548,20 +564,31 @@ export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSe
                   )}
                 </td>
                 <td className="px-4 py-2 align-top">
-                  {result.source_url ? (
-                    <a
-                      href={result.source_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline max-w-[16rem]"
-                      title={result.source_url}
-                    >
-                      <span className="truncate">{formatSourceUrl(result.source_url)}</span>
-                      <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                    </a>
-                  ) : (
-                    <span className="text-sm text-slate-400">—</span>
-                  )}
+                  <div className="flex items-center gap-1.5">
+                    {result.is_new === true && (
+                      <span
+                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 flex-shrink-0"
+                        title="Absent de l'exécution précédente de cette veille"
+                      >
+                        <Zap className="w-2.5 h-2.5" />
+                        Nouveau
+                      </span>
+                    )}
+                    {result.source_url ? (
+                      <a
+                        href={result.source_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline max-w-[16rem]"
+                        title={result.source_url}
+                      >
+                        <span className="truncate">{formatSourceUrl(result.source_url)}</span>
+                        <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                      </a>
+                    ) : (
+                      <span className="text-sm text-slate-400">—</span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-2 align-top">
                   <ResultTypeBadge type={result.result_type as ScrapeResultType} />
@@ -620,9 +647,11 @@ export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSe
             {sorted.length === 0 && (
               <tr>
                 <td colSpan={hasLabels ? 8 : 7} className="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
-                  {hasActiveColumnFilters
-                    ? 'Aucun résultat ne correspond aux filtres'
-                    : `Aucun résultat${activeTab !== 'all' ? ' pour ce type' : ''}`}
+                  {newOnly
+                    ? 'Aucune nouveauté depuis la dernière exécution de cette veille'
+                    : hasActiveColumnFilters
+                      ? 'Aucun résultat ne correspond aux filtres'
+                      : `Aucun résultat${activeTab !== 'all' ? ' pour ce type' : ''}`}
                 </td>
               </tr>
             )}

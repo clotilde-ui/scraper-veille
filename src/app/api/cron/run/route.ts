@@ -67,6 +67,7 @@ export async function GET(request: NextRequest) {
         googleSheetsWebhookUrl: job.googleSheetsWebhookUrl,
         schedule: null, // le clone n'a pas de schedule
         nextRunAt: null,
+        templateJobId: job.id, // rattache cette execution a sa recherche planifiee, pour l'historique
         createdAt: newNow,
         updatedAt: newNow,
       });

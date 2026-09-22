@@ -19,6 +19,7 @@ export const scrapeJobs = sqliteTable('scrape_jobs', {
   nextRunAt: text('next_run_at'),
   aiAutoScore: integer('ai_auto_score').notNull().default(0), // 0/1 : analyse IA auto en fin de scraping
   aiPrompt: text('ai_prompt'), // instructions d'analyse IA personnalisees pour ce job (null = defaut)
+  templateJobId: text('template_job_id'), // job planifie d'origine dont ce job est une execution (null = job manuel ou template lui-meme)
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 });

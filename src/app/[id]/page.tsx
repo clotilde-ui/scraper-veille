@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Play, Globe, FileText, Link2, Download, Table2, Clock, Pencil } from 'lucide-react';
+import { ArrowLeft, Play, Globe, FileText, Link2, Download, Table2, Clock, Pencil, History } from 'lucide-react';
 import { useSupabaseScrapeJobs, parseKeywords } from '@/hooks/useSupabaseScrapeJobs';
 import { useSupabaseScrapeUrls } from '@/hooks/useSupabaseScrapeUrls';
 import { useSupabaseScrapeResults } from '@/hooks/useSupabaseScrapeResults';
@@ -19,7 +19,18 @@ import { SCRAPE_TYPES } from '@/types';
 import type { ScrapeJobStatus, ScrapeType } from '@/types';
 import { CRON_PRESETS, describeCron, validateCron, getNextRunAt } from '@/lib/cronUtils';
 
-type Tab = 'overview' | 'urls' | 'results' | 'export' | 'schedule';
+type Tab = 'overview' | 'urls' | 'results' | 'export' | 'schedule' | 'history';
+
+interface JobRun {
+  id: string;
+  name: string;
+  status: string;
+  totalResults: number;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+  isTemplate: boolean;
+}
 
 export default function ScrapeJobDetailPage() {
   const params = useParams();
@@ -28,10 +39,11 @@ export default function ScrapeJobDetailPage() {
 
   const { jobs, fetchJobs } = useSupabaseScrapeJobs();
   const { urls, fetchUrls } = useSupabaseScrapeUrls(jobId);
-  const { results, isLoading: resultsLoading, fetchResults } = useSupabaseScrapeResults(jobId);
+  const { results, isLoading: resultsLoading, fetchResults, hasPreviousRun } = useSupabaseScrapeResults(jobId);
   const orchestrator = useScrapeOrchestrator();
 
   const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [runs, setRuns] = useState<JobRun[]>([]);
   const [webhookUrl, setWebhookUrl] = useState('');
   const [webhookSaving, setWebhookSaving] = useState(false);
   const [sheetsSending, setSheetsSending] = useState(false);
@@ -58,6 +70,15 @@ export default function ScrapeJobDetailPage() {
   useEffect(() => {
     if (job?.schedule) setScheduleValue(job.schedule);
   }, [job?.schedule]);
+
+  // Historique des exécutions passées de cette même veille (job planifié + ses clones lancés par le cron)
+  const fetchRuns = useCallback(async () => {
+    if (!jobId) return;
+    const res = await fetch(`/api/scraper/jobs/${jobId}/runs`);
+    if (res.ok) setRuns(await res.json());
+  }, [jobId]);
+
+  useEffect(() => { fetchRuns(); }, [fetchRuns]);
 
   const saveSchedule = useCallback(async (cron: string) => {
     if (cron && !validateCron(cron)) {
@@ -262,6 +283,7 @@ export default function ScrapeJobDetailPage() {
     { key: 'results', label: 'Résultats', icon: FileText, count: results.length },
     { key: 'export', label: 'Export', icon: Download },
     { key: 'schedule', label: 'Planification', icon: Clock },
+    ...(runs.length > 1 ? [{ key: 'history' as Tab, label: 'Historique', icon: History, count: runs.length }] : []),
   ];
 
   return (
@@ -427,6 +449,7 @@ export default function ScrapeJobDetailPage() {
           scoreError={scoreError}
           aiPrompt={job.ai_prompt}
           onPromptSaved={() => fetchJobs(false)}
+          hasPreviousRun={hasPreviousRun}
         />
       )}
 
@@ -581,6 +604,52 @@ export default function ScrapeJobDetailPage() {
 
           <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-xs text-amber-700 dark:text-amber-400">
             Le scraping planifié tourne automatiquement côté serveur, sans avoir besoin d&apos;ouvrir l&apos;app. Les résultats seront envoyés vers Google Sheets si un webhook est configuré dans l&apos;onglet Export.
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'history' && (
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+            <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              Exécutions passées de cette veille
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Chaque lancement planifié crée une nouvelle exécution datée, sans écraser les précédentes.
+            </p>
+          </div>
+          <div className="divide-y divide-slate-100 dark:divide-slate-700">
+            {runs.map(run => (
+              <button
+                key={run.id}
+                onClick={() => run.id !== jobId && router.push(`/${run.id}`)}
+                className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors ${
+                  run.id === jobId
+                    ? 'bg-blue-50 dark:bg-blue-900/20 cursor-default'
+                    : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <JobStatusBadge status={run.status as ScrapeJobStatus} />
+                  <span className="text-sm font-medium text-slate-900 dark:text-white">
+                    {new Date(run.createdAt).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })}
+                  </span>
+                  {run.isTemplate && (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">
+                      Modèle planifié
+                    </span>
+                  )}
+                  {run.id === jobId && (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                      Vue actuelle
+                    </span>
+                  )}
+                </div>
+                <span className="text-sm text-slate-500 dark:text-slate-400">
+                  {run.totalResults} résultat{run.totalResults !== 1 ? 's' : ''}
+                </span>
+              </button>
+            ))}
           </div>
         </div>
       )}

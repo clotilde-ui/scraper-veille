@@ -16,6 +16,7 @@ client.execute('ALTER TABLE scrape_jobs ADD COLUMN next_run_at TEXT').catch(() =
 client.execute('ALTER TABLE scrape_jobs ADD COLUMN ai_auto_score INTEGER NOT NULL DEFAULT 0').catch(() => {});
 client.execute('ALTER TABLE scrape_jobs ADD COLUMN ai_prompt TEXT').catch(() => {});
 client.execute('ALTER TABLE scrape_results ADD COLUMN ai_score INTEGER').catch(() => {});
+client.execute('ALTER TABLE scrape_jobs ADD COLUMN template_job_id TEXT').catch(() => {});
 client.execute(`CREATE TABLE IF NOT EXISTS app_settings (
   id TEXT PRIMARY KEY,
   openrouter_api_key TEXT,
