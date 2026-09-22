@@ -464,7 +464,18 @@ export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSe
                     className="w-full px-2 py-1 text-xs font-normal normal-case border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </th>
-                <th className="px-4 py-2" />
+                <th className="px-4 py-2">
+                  <select
+                    value={activeTab}
+                    onChange={e => handleTabChange(e.target.value as ScrapeResultType | 'all')}
+                    className="w-full px-2 py-1 text-xs font-normal normal-case border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="all">Tout ({results.length})</option>
+                    {activeTypes.map(t => (
+                      <option key={t.value} value={t.value}>{t.label} ({counts[t.value]})</option>
+                    ))}
+                  </select>
+                </th>
                 <th className="px-4 py-2">
                   <input
                     type="text"
