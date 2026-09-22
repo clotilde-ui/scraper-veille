@@ -23,6 +23,16 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [expandedContextIds, setExpandedContextIds] = useState<Set<string>>(new Set());
+
+  const toggleContext = (id: string) => {
+    setExpandedContextIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const filtered = useMemo(() =>
     activeTab === 'all' ? results : results.filter(r => r.result_type === activeTab),
@@ -142,7 +152,7 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
           <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
             {paginated.map(result => (
               <tr key={result.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                <td className="px-4 py-2">
+                <td className="px-4 py-2 align-top">
                   {result.source_url ? (
                     <a
                       href={result.source_url}
@@ -158,10 +168,10 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
                     <span className="text-sm text-slate-400">—</span>
                   )}
                 </td>
-                <td className="px-4 py-2">
+                <td className="px-4 py-2 align-top">
                   <ResultTypeBadge type={result.result_type as ScrapeResultType} />
                 </td>
-                <td className="px-4 py-2">
+                <td className="px-4 py-2 align-top">
                   <div className="flex items-center gap-2 max-w-md">
                     <span className="text-sm text-slate-900 dark:text-white font-mono truncate">
                       {result.value}
@@ -179,14 +189,26 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
                   </div>
                 </td>
                 {hasLabels && (
-                  <td className="px-4 py-2 text-sm text-slate-500 dark:text-slate-400 truncate max-w-[12rem]">
+                  <td className="px-4 py-2 align-top text-sm text-slate-500 dark:text-slate-400 truncate max-w-[12rem]">
                     {result.label || '—'}
                   </td>
                 )}
-                <td className="px-4 py-2 text-xs text-slate-500 dark:text-slate-400 max-w-md align-top" title={result.context || undefined}>
-                  <span className="line-clamp-3 whitespace-pre-wrap">{result.context || '—'}</span>
+                <td className="px-4 py-2 text-xs text-slate-500 dark:text-slate-400 max-w-md align-top">
+                  {result.context ? (
+                    <>
+                      <span className={`whitespace-pre-wrap ${expandedContextIds.has(result.id) ? '' : 'line-clamp-3'}`}>
+                        {result.context}
+                      </span>
+                      <button
+                        onClick={() => toggleContext(result.id)}
+                        className="block mt-1 text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                      >
+                        {expandedContextIds.has(result.id) ? 'Voir moins' : 'Voir tout'}
+                      </button>
+                    </>
+                  ) : '—'}
                 </td>
-                <td className="px-4 py-2">
+                <td className="px-4 py-2 align-top">
                   <button
                     onClick={() => copyValue(result.id, result.value)}
                     className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
