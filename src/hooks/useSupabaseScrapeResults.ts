@@ -13,6 +13,7 @@ export interface ScrapeResultRow {
   context: string | null;
   metadata: Record<string, unknown> | null;
   ai_score: number | null;
+  is_new: boolean | null;
   created_at: string;
 }
 
@@ -28,6 +29,7 @@ function normalize(row: Record<string, unknown>): ScrapeResultRow {
     context: (row.context ?? null) as string | null,
     metadata: (row.metadata ?? null) as Record<string, unknown> | null,
     ai_score: ((row.aiScore ?? row.ai_score) ?? null) as number | null,
+    is_new: ((row.isNew ?? row.is_new) ?? null) as boolean | null,
     created_at: (row.createdAt ?? row.created_at ?? '') as string,
   };
 }
@@ -36,6 +38,7 @@ export function useSupabaseScrapeResults(jobId: string, filterType?: string) {
   const [results, setResults] = useState<ScrapeResultRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasPreviousRun, setHasPreviousRun] = useState(false);
   const mountedRef = useRef(true);
 
   const fetchResults = useCallback(async (showLoading = true) => {
@@ -44,7 +47,7 @@ export function useSupabaseScrapeResults(jobId: string, filterType?: string) {
     setError(null);
 
     try {
-      const params = new URLSearchParams({ jobId, limit: '500' });
+      const params = new URLSearchParams({ jobId, limit: '500', compareToPrevious: '1' });
       if (filterType) params.set('type', filterType);
 
       const res = await fetch(`/api/scraper/results?${params.toString()}`);
@@ -57,6 +60,7 @@ export function useSupabaseScrapeResults(jobId: string, filterType?: string) {
         const data = await res.json();
         const rows: Record<string, unknown>[] = data.results || [];
         setResults(rows.map(normalize));
+        setHasPreviousRun(Boolean(data.hasPreviousRun));
       }
     } catch (err: unknown) {
       if (!mountedRef.current) return;
@@ -72,5 +76,5 @@ export function useSupabaseScrapeResults(jobId: string, filterType?: string) {
     return () => { mountedRef.current = false; };
   }, [fetchResults]);
 
-  return { results, isLoading, error, fetchResults };
+  return { results, isLoading, error, fetchResults, hasPreviousRun };
 }

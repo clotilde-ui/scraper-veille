@@ -35,6 +35,7 @@ export interface ScrapeJobRow {
   next_run_at: string | null | undefined;
   ai_auto_score: boolean;
   ai_prompt: string | null;
+  template_job_id: string | null;
   created_at: string;
   updated_at: string;
   // Compat with old DbScrapeJobWithCreator usage
@@ -62,6 +63,7 @@ function normalize(row: Record<string, unknown>): ScrapeJobRow {
     next_run_at: (row.nextRunAt ?? row.next_run_at ?? null) as string | null,
     ai_auto_score: Boolean(row.aiAutoScore ?? row.ai_auto_score ?? 0),
     ai_prompt: (row.aiPrompt ?? row.ai_prompt ?? null) as string | null,
+    template_job_id: (row.templateJobId ?? row.template_job_id ?? null) as string | null,
     created_at: (row.createdAt ?? row.created_at ?? '') as string,
     updated_at: (row.updatedAt ?? row.updated_at ?? '') as string,
     users: null,

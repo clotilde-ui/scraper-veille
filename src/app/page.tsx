@@ -65,6 +65,7 @@ export default function OutilsWebPage() {
       keywords: (config.keywords.include.length > 0 || config.keywords.exclude.length > 0) ? config.keywords : null,
       ai_auto_score: config.aiAutoScore,
       ai_prompt: null,
+      template_job_id: null,
       total_urls: config.urls.length,
       completed_urls: 0,
       failed_urls: 0,
