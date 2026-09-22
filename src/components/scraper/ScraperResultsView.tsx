@@ -128,7 +128,8 @@ export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSe
       !needle || (haystack || '').toLowerCase().includes(needle.toLowerCase());
     return filtered.filter(r => {
       if (!matches(r.source_url, columnFilters.site)) return false;
-      if (!matches(r.value, columnFilters.valeur)) return false;
+      // Filtre "Valeur" en liste déroulante : correspondance exacte, pas un simple sous-texte.
+      if (columnFilters.valeur && r.value !== columnFilters.valeur) return false;
       if (!matches(isMeaningfulLabel(r) ? r.label : null, columnFilters.label)) return false;
       if (!matches(r.context, columnFilters.contexte)) return false;
       if (columnFilters.score !== 'all') {
@@ -141,6 +142,12 @@ export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSe
       return true;
     });
   }, [filtered, columnFilters, hasActiveColumnFilters]);
+
+  // Valeurs distinctes du type actif, pour le filtre "Valeur" en liste déroulante.
+  const distinctValues = useMemo(() =>
+    Array.from(new Set(filtered.map(r => r.value))).sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' })),
+    [filtered]
+  );
 
   const formatSourceUrl = (sourceUrl: string) => {
     try {
@@ -477,13 +484,16 @@ export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSe
                   </select>
                 </th>
                 <th className="px-4 py-2">
-                  <input
-                    type="text"
+                  <select
                     value={columnFilters.valeur}
                     onChange={e => updateColumnFilter('valeur', e.target.value)}
-                    placeholder="Filtrer..."
-                    className="w-full px-2 py-1 text-xs font-normal normal-case border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  />
+                    className="w-full px-2 py-1 text-xs font-normal normal-case border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Toutes les valeurs</option>
+                    {distinctValues.map(v => (
+                      <option key={v} value={v} title={v}>{v.length > 60 ? `${v.slice(0, 60)}…` : v}</option>
+                    ))}
+                  </select>
                 </th>
                 {hasLabels && (
                   <th className="px-4 py-2">
