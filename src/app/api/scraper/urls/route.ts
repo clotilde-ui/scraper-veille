@@ -49,7 +49,12 @@ export async function POST(request: NextRequest) {
       createdAt: u.createdAt || u.created_at || now,
     }));
 
-    await db.insert(scrapeUrls).values(toInsert);
+    // SQLite/libSQL limite le nombre de paramètres liés par requête : on
+    // insère par lots pour ne pas dépasser cette limite avec de gros jobs.
+    const BATCH_SIZE = 200;
+    for (let i = 0; i < toInsert.length; i += BATCH_SIZE) {
+      await db.insert(scrapeUrls).values(toInsert.slice(i, i + BATCH_SIZE));
+    }
 
     return NextResponse.json(toInsert, { status: 201 });
   } catch (error) {
