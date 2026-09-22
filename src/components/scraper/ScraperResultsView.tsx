@@ -1,12 +1,25 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import { ExternalLink, Copy, Check, Table2, Sparkles, ArrowDown, ArrowUp } from 'lucide-react';
 import { ResultTypeBadge } from './ScraperStatusBadge';
 import { Pagination } from '@/components/Pagination';
 import { SCRAPE_RESULT_TYPES } from '@/types';
 import type { ScrapeResultRow } from '@/hooks/useSupabaseScrapeResults';
 import type { ScrapeResultType } from '@/types';
+
+const MIN_COL_WIDTH = 80;
+
+const DEFAULT_COL_WIDTHS = {
+  site: 256,
+  type: 112,
+  valeur: 320,
+  label: 192,
+  contexte: 384,
+  score: 140,
+};
+
+type ColKey = keyof typeof DEFAULT_COL_WIDTHS;
 
 interface ScraperResultsViewProps {
   results: ScrapeResultRow[];
@@ -29,6 +42,40 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [expandedContextIds, setExpandedContextIds] = useState<Set<string>>(new Set());
   const [sortScore, setSortScore] = useState<'none' | 'desc' | 'asc'>('none');
+  const [colWidths, setColWidths] = useState<Record<ColKey, number>>(DEFAULT_COL_WIDTHS);
+  const resizingRef = useRef<{ key: ColKey; startX: number; startWidth: number } | null>(null);
+
+  const handleResizeStart = useCallback((key: ColKey, e: React.MouseEvent) => {
+    e.preventDefault();
+    resizingRef.current = { key, startX: e.clientX, startWidth: colWidths[key] };
+
+    const handleMove = (moveEvent: MouseEvent) => {
+      const r = resizingRef.current;
+      if (!r) return;
+      const newWidth = Math.max(MIN_COL_WIDTH, r.startWidth + (moveEvent.clientX - r.startX));
+      setColWidths(prev => ({ ...prev, [r.key]: newWidth }));
+    };
+
+    const handleEnd = () => {
+      resizingRef.current = null;
+      document.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('mouseup', handleEnd);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleEnd);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, [colWidths]);
+
+  const renderResizeHandle = (key: ColKey) => (
+    <div
+      onMouseDown={e => handleResizeStart(key, e)}
+      className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize select-none hover:bg-blue-400/50 active:bg-blue-500"
+    />
+  );
 
   const toggleContext = (id: string) => {
     setExpandedContextIds(prev => {
@@ -182,15 +229,32 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
 
       {/* Results list */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
-        <table className="w-full">
+        <table className="table-fixed" style={{ width: '100%' }}>
           <thead className="border-b border-slate-200 dark:border-slate-700">
             <tr>
-              <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-64">Site scrapé</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-28">Type</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Valeur</th>
-              {hasLabels && <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-48">Label</th>}
-              <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-96">Contexte</th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-32">
+              <th style={{ width: colWidths.site }} className="relative px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">
+                Site scrapé
+                {renderResizeHandle('site')}
+              </th>
+              <th style={{ width: colWidths.type }} className="relative px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">
+                Type
+                {renderResizeHandle('type')}
+              </th>
+              <th style={{ width: colWidths.valeur }} className="relative px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">
+                Valeur
+                {renderResizeHandle('valeur')}
+              </th>
+              {hasLabels && (
+                <th style={{ width: colWidths.label }} className="relative px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">
+                  Label
+                  {renderResizeHandle('label')}
+                </th>
+              )}
+              <th style={{ width: colWidths.contexte }} className="relative px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">
+                Contexte
+                {renderResizeHandle('contexte')}
+              </th>
+              <th style={{ width: colWidths.score }} className="relative px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">
                 <button
                   onClick={() => setSortScore(prev => prev === 'desc' ? 'asc' : prev === 'asc' ? 'none' : 'desc')}
                   className="inline-flex items-center gap-1 uppercase hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
@@ -200,6 +264,7 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
                   {sortScore === 'desc' && <ArrowDown className="w-3 h-3" />}
                   {sortScore === 'asc' && <ArrowUp className="w-3 h-3" />}
                 </button>
+                {renderResizeHandle('score')}
               </th>
               <th className="px-4 py-2 w-20" />
             </tr>
