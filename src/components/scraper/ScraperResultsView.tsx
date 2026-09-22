@@ -345,7 +345,7 @@ export function ScraperResultsView({ results, isLoading, jobId, webhookUrl, onSe
                   className="inline-flex items-center gap-1 uppercase hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
                   title="Trier par note IA"
                 >
-                  Analyse IA
+                  Score
                   {sortScore === 'desc' && <ArrowDown className="w-3 h-3" />}
                   {sortScore === 'asc' && <ArrowUp className="w-3 h-3" />}
                 </button>
