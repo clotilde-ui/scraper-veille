@@ -191,7 +191,8 @@ export default function ScrapeJobDetailPage() {
       await fetchJobs(false);
     } catch (err) {
       console.error('Erreur au lancement du scraping:', err);
-      toast.error('Impossible de lancer le scraping');
+      const message = err instanceof Error ? err.message : 'Impossible de lancer le scraping';
+      toast.error(message, { duration: 10000 });
     }
   }, [job, orchestrator, fetchJobs]);
 
@@ -217,21 +218,30 @@ export default function ScrapeJobDetailPage() {
   }, [job, orchestrator]);
 
   const handleEditAndRelaunch = useCallback(async (config: { name: string; urls: string[]; scrapeType: string; crawlDepth: number; keywords: { include: string[]; exclude: string[] }; aiAutoScore: boolean }) => {
-    await fetch(`/api/scraper/jobs/${jobId}/reset`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: config.name,
-        scrapeType: config.scrapeType,
-        crawlDepth: config.crawlDepth,
-        keywords: config.keywords,
-        urls: config.urls,
-        aiAutoScore: config.aiAutoScore,
-      }),
-    });
-    await fetchJobs(false);
-    await fetchUrls(false);
-    setEditModalOpen(false);
+    try {
+      const res = await fetch(`/api/scraper/jobs/${jobId}/reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: config.name,
+          scrapeType: config.scrapeType,
+          crawlDepth: config.crawlDepth,
+          keywords: config.keywords,
+          urls: config.urls,
+          aiAutoScore: config.aiAutoScore,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || 'Erreur lors de la relance du job', { duration: 10000 });
+        return;
+      }
+      await fetchJobs(false);
+      await fetchUrls(false);
+      setEditModalOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur lors de la relance du job', { duration: 10000 });
+    }
   }, [jobId, fetchJobs, fetchUrls]);
 
   if (!job) {

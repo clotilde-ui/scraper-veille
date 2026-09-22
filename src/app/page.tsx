@@ -75,7 +75,7 @@ export default function OutilsWebPage() {
     });
 
     if (!job) {
-      toast.error('Erreur lors de la création du job');
+      toast.error('Erreur lors de la création du job : voir le détail ci-dessus', { duration: 10000 });
       return;
     }
 
@@ -99,7 +99,8 @@ export default function OutilsWebPage() {
       // Le job a déjà été créé : on le supprime pour ne pas laisser un job
       // vide (total_urls renseigné mais aucune URL réelle) dans la liste.
       await deleteJob(job.id);
-      toast.error('Erreur lors de l\'insertion des URLs');
+      const err = await res.json().catch(() => ({}));
+      toast.error(err.error || 'Erreur lors de l\'insertion des URLs', { duration: 10000 });
       return;
     }
 

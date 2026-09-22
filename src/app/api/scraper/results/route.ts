@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { scrapeResults } from '@/lib/db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
+import { errorMessage } from '@/lib/apiError';
 
 export async function GET(request: NextRequest) {
   try {
@@ -49,6 +50,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Erreur API results:', error);
-    return NextResponse.json({ error: 'Erreur serveur interne' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage(error, 'Erreur serveur interne') }, { status: 500 });
   }
 }

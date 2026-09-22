@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { scrapeJobs, scrapeUrls, scrapeResults } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { errorMessage } from '@/lib/apiError';
 
 export async function GET(
   _request: NextRequest,
@@ -21,7 +22,7 @@ export async function GET(
     });
   } catch (error) {
     console.error('Error fetching job:', error);
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage(error, 'Erreur serveur') }, { status: 500 });
   }
 }
 
@@ -78,7 +79,7 @@ export async function PATCH(
     });
   } catch (error) {
     console.error('Error updating job:', error);
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage(error, 'Erreur serveur') }, { status: 500 });
   }
 }
 
@@ -96,6 +97,6 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting job:', error);
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage(error, 'Erreur serveur') }, { status: 500 });
   }
 }

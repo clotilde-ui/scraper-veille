@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { scrapeUrls } from '@/lib/db/schema';
 import { eq, asc } from 'drizzle-orm';
+import { errorMessage } from '@/lib/apiError';
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(urls);
   } catch (error) {
     console.error('Error fetching urls:', error);
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage(error, 'Erreur serveur') }, { status: 500 });
   }
 }
 
@@ -59,6 +60,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(toInsert, { status: 201 });
   } catch (error) {
     console.error('Error creating urls:', error);
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage(error, 'Erreur serveur') }, { status: 500 });
   }
 }

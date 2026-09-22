@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { scrapeUrls } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { errorMessage } from '@/lib/apiError';
 
 export async function PATCH(
   request: NextRequest,
@@ -34,6 +35,6 @@ export async function PATCH(
     return NextResponse.json(updated);
   } catch (error) {
     console.error('Error updating url:', error);
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage(error, 'Erreur serveur') }, { status: 500 });
   }
 }

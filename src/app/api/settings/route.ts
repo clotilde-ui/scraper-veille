@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { appSettings } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { DEFAULT_AI_MODEL } from '@/lib/aiModels';
+import { errorMessage } from '@/lib/apiError';
 
 const SETTINGS_ID = 'global';
 
@@ -16,7 +17,7 @@ export async function GET() {
     });
   } catch (error) {
     console.error('Error fetching settings:', error);
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage(error, 'Erreur serveur') }, { status: 500 });
   }
 }
 
@@ -47,6 +48,6 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ hasApiKey: Boolean(openrouterApiKey), aiModel });
   } catch (error) {
     console.error('Error updating settings:', error);
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage(error, 'Erreur serveur') }, { status: 500 });
   }
 }
