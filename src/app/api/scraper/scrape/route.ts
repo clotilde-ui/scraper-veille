@@ -191,13 +191,18 @@ export async function POST(request: Request) {
 
     const now = new Date().toISOString();
     const addResult = (type: string, value: string, label: string | null, context: string | null, metadata: Record<string, unknown> = {}) => {
-      if (seenValues.has(`${type}:${value}`)) return;
+      // Le contexte fait partie de la clé de dédoublonnage : pour un lien ou un
+      // email (sans contexte), une même valeur ne doit apparaître qu'une fois,
+      // mais un mot-clé trouvé à plusieurs endroits différents d'une même page
+      // doit donner une ligne par occurrence (contexte différent à chaque fois).
+      const dedupeKey = `${type}:${value}:${context ?? ''}`;
+      if (seenValues.has(dedupeKey)) return;
       // Filter out keyword matches whose context contains an exclude keyword
       if (type === 'keyword_match' && excludeKeywords.length > 0) {
         const searchText = `${value} ${context || ''}`.toLowerCase();
         if (excludeKeywords.some((ex: string) => searchText.includes(ex.toLowerCase()))) return;
       }
-      seenValues.add(`${type}:${value}`);
+      seenValues.add(dedupeKey);
       results.push({
         id: crypto.randomUUID(),
         jobId: jobId,
@@ -265,28 +270,30 @@ export async function POST(request: Request) {
           if (!keyword.trim()) continue;
 
           if (isBooleanQuery(keyword)) {
-            // Boolean expression: evaluate once, extract context around first matching term
+            // Boolean expression: une ligne de résultat par terme réellement
+            // trouvé, chacune avec son propre contexte (au lieu de fusionner
+            // tous les termes matchés en une seule ligne au contexte unique).
             const evaluate = compileBooleanQuery(keyword);
             if (evaluate(bodyText)) {
               const terms = extractTerms(keyword);
               const matchedTerms = terms.filter(t => normBody.includes(normalizeApostrophes(t.toLowerCase())));
-              const firstTerm = matchedTerms[0];
-              let context = '';
-              if (firstTerm) {
-                const idx = normBody.indexOf(normalizeApostrophes(firstTerm.toLowerCase()));
-                const start = Math.max(0, idx - CONTEXT_RADIUS);
-                const end = Math.min(bodyText.length, idx + firstTerm.length + CONTEXT_RADIUS);
-                context = `...${bodyText.substring(start, end).trim()}...`;
+              for (const term of matchedTerms) {
+                const idx = normBody.indexOf(normalizeApostrophes(term.toLowerCase()));
+                let context: string | null = null;
+                if (idx !== -1) {
+                  const start = Math.max(0, idx - CONTEXT_RADIUS);
+                  const end = Math.min(bodyText.length, idx + term.length + CONTEXT_RADIUS);
+                  context = `...${bodyText.substring(start, end).trim()}...`;
+                }
+                // Le terme réellement trouvé sert de valeur ET de label ; la
+                // requête booléenne complète reste dans les métadonnées.
+                addResult('keyword_match', term, term, context, {
+                  pageUrl: foundPageUrl,
+                  pageTitle,
+                  booleanQuery: true,
+                  query: keyword,
+                });
               }
-              // Le(s) mot(s)-clé(s) réellement trouvé(s) servent de valeur ET de
-              // label ; la requête booléenne complète reste dans les métadonnées.
-              const matchedValue = matchedTerms.length ? matchedTerms.join(', ') : keyword;
-              addResult('keyword_match', matchedValue, matchedValue, context || null, {
-                pageUrl: foundPageUrl,
-                pageTitle,
-                booleanQuery: true,
-                query: keyword,
-              });
             }
           } else {
             // Simple keyword: search all occurrences
