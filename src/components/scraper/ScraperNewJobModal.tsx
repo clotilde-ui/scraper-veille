@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { X, Upload, ChevronRight, ChevronLeft, FileText, Globe, Search, Check } from 'lucide-react';
+import { X, Upload, ChevronRight, ChevronLeft, FileText, Globe, Search, Check, AlertTriangle, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { SCRAPE_TYPES } from '@/types';
 import type { ScrapeType } from '@/types';
@@ -45,10 +45,27 @@ export function ScraperNewJobModal({ isOpen, onClose, onSubmit, editDefaults }: 
 
   const isEdit = !!editDefaults;
 
-  const parsedUrls = urlsText
-    .split('\n')
-    .map(line => line.trim())
-    .filter(line => line.length > 0 && (line.startsWith('http://') || line.startsWith('https://')));
+  const isValidUrl = (line: string) => line.startsWith('http://') || line.startsWith('https://');
+
+  const urlLines = urlsText.split('\n').map(line => line.trim());
+
+  const parsedUrls = urlLines.filter(line => line.length > 0 && isValidUrl(line));
+
+  const invalidUrlLines = urlLines
+    .map((line, index) => ({ line, index }))
+    .filter(({ line }) => line.length > 0 && !isValidUrl(line));
+
+  const updateUrlLine = (index: number, value: string) => {
+    const lines = urlsText.split('\n');
+    lines[index] = value;
+    setUrlsText(lines.join('\n'));
+  };
+
+  const removeUrlLine = (index: number) => {
+    const lines = urlsText.split('\n');
+    lines.splice(index, 1);
+    setUrlsText(lines.join('\n'));
+  };
 
   const parsedKeywords = keywordsText
     .split(',')
@@ -211,6 +228,38 @@ export function ScraperNewJobModal({ isOpen, onClose, onSubmit, editDefaults }: 
                   className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
                 />
               </div>
+
+              {invalidUrlLines.length > 0 && (
+                <div className="border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium text-amber-700 dark:text-amber-400">
+                    <AlertTriangle className="w-4 h-4" />
+                    {invalidUrlLines.length} URL{invalidUrlLines.length > 1 ? 's' : ''} au format invalide (ignorée{invalidUrlLines.length > 1 ? 's' : ''} au lancement)
+                  </div>
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    Une URL doit commencer par <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">http://</code> ou <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">https://</code>. Corrige ou supprime les lignes ci-dessous.
+                  </p>
+                  <div className="space-y-1.5">
+                    {invalidUrlLines.map(({ line, index }) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={line}
+                          onChange={e => updateUrlLine(index, e.target.value)}
+                          className="flex-1 px-2 py-1.5 border border-amber-300 dark:border-amber-700 rounded-md bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-mono focus:ring-2 focus:ring-amber-400 focus:border-amber-400"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeUrlLine(index)}
+                          title="Supprimer cette ligne"
+                          className="p-1.5 text-amber-600 hover:text-red-600 dark:text-amber-400 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           )}
 
