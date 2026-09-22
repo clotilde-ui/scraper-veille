@@ -3,6 +3,7 @@ import { scrapeJobs, scrapeUrls } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { scrapeUrl, updateJobCounters } from '@/lib/scrapeUrl';
 import { scoreJobBatch } from '@/lib/aiScore';
+import { getExcludedDomains } from '@/lib/excludedDomains';
 
 const MAX_DISCOVERED_PER_DEPTH = 50;
 const CONCURRENCY = 3;
@@ -17,6 +18,7 @@ export async function runJobServerSide(jobId: string): Promise<void> {
   const keywords: string[] = job.keywords ? JSON.parse(job.keywords)?.include ?? [] : [];
   const excludeKeywords: string[] = job.keywords ? JSON.parse(job.keywords)?.exclude ?? [] : [];
   const crawlDepth = job.crawlDepth;
+  const excludedDomains = await getExcludedDomains();
 
   await db.update(scrapeJobs).set({ status: 'running', startedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }).where(eq(scrapeJobs.id, jobId));
 
@@ -37,7 +39,7 @@ export async function runJobServerSide(jobId: string): Promise<void> {
           await db.update(scrapeUrls).set({ status: 'scraping' }).where(eq(scrapeUrls.id, urlRow.id));
 
           try {
-            const result = await scrapeUrl({ jobId, urlId: urlRow.id, url: urlRow.url, scrapeTypes, keywords, excludeKeywords });
+            const result = await scrapeUrl({ jobId, urlId: urlRow.id, url: urlRow.url, scrapeTypes, keywords, excludeKeywords, excludedDomains });
 
             if (depth < crawlDepth - 1 && result.internalLinks.length > 0) {
               const existingUrls = await db.select().from(scrapeUrls).where(eq(scrapeUrls.jobId, jobId));

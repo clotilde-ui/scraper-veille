@@ -11,9 +11,12 @@ const SETTINGS_ID = 'global';
 export async function GET() {
   try {
     const [row] = await db.select().from(appSettings).where(eq(appSettings.id, SETTINGS_ID));
+    let excludedDomains: string[] = [];
+    try { excludedDomains = row?.excludedDomains ? JSON.parse(row.excludedDomains) : []; } catch { excludedDomains = []; }
     return NextResponse.json({
       hasApiKey: Boolean(row?.openrouterApiKey),
       aiModel: row?.aiModel || DEFAULT_AI_MODEL,
+      excludedDomains,
     });
   } catch (error) {
     console.error('Error fetching settings:', error);
@@ -37,15 +40,23 @@ export async function PUT(request: NextRequest) {
 
     const aiModel = typeof body.aiModel === 'string' && body.aiModel.trim() !== '' ? body.aiModel.trim() : DEFAULT_AI_MODEL;
 
-    if (existing) {
-      await db.update(appSettings)
-        .set({ openrouterApiKey, aiModel, updatedAt: now })
-        .where(eq(appSettings.id, SETTINGS_ID));
-    } else {
-      await db.insert(appSettings).values({ id: SETTINGS_ID, openrouterApiKey, aiModel, updatedAt: now });
+    let excludedDomains = existing?.excludedDomains ?? null;
+    if (Array.isArray(body.excludedDomains)) {
+      const cleaned = body.excludedDomains
+        .filter((d: unknown): d is string => typeof d === 'string' && d.trim() !== '')
+        .map((d: string) => d.trim().toLowerCase());
+      excludedDomains = cleaned.length > 0 ? JSON.stringify(cleaned) : null;
     }
 
-    return NextResponse.json({ hasApiKey: Boolean(openrouterApiKey), aiModel });
+    if (existing) {
+      await db.update(appSettings)
+        .set({ openrouterApiKey, aiModel, excludedDomains, updatedAt: now })
+        .where(eq(appSettings.id, SETTINGS_ID));
+    } else {
+      await db.insert(appSettings).values({ id: SETTINGS_ID, openrouterApiKey, aiModel, excludedDomains, updatedAt: now });
+    }
+
+    return NextResponse.json({ hasApiKey: Boolean(openrouterApiKey), aiModel, excludedDomains: excludedDomains ? JSON.parse(excludedDomains) : [] });
   } catch (error) {
     console.error('Error updating settings:', error);
     return NextResponse.json({ error: errorMessage(error, 'Erreur serveur') }, { status: 500 });

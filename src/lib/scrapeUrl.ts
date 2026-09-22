@@ -4,6 +4,7 @@ import { scrapeUrls, scrapeResults } from '@/lib/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { scrapeJobs } from '@/lib/db/schema';
 import { compileBooleanQuery, extractTerms, isBooleanQuery, normalizeApostrophes } from '@/lib/booleanQuery';
+import { isDomainExcluded } from '@/lib/excludedDomains';
 
 const FETCH_TIMEOUT = 15000;
 // Nombre de caractères capturés de part et d'autre du mot-clé pour le contexte.
@@ -21,6 +22,7 @@ export interface ScrapeUrlParams {
   scrapeTypes: string[];
   keywords: string[];
   excludeKeywords: string[];
+  excludedDomains?: string[];
 }
 
 export interface ScrapeUrlResult {
@@ -62,7 +64,13 @@ export async function updateJobCounters(jobId: string) {
 }
 
 export async function scrapeUrl(params: ScrapeUrlParams): Promise<ScrapeUrlResult> {
-  const { jobId, urlId, url, scrapeTypes, keywords, excludeKeywords } = params;
+  const { jobId, urlId, url, scrapeTypes, keywords, excludeKeywords, excludedDomains = [] } = params;
+
+  if (isDomainExcluded(url, excludedDomains)) {
+    await db.update(scrapeUrls).set({ status: 'skipped', errorMessage: 'Domaine sur liste noire (Paramètres)', scrapedAt: new Date().toISOString() }).where(eq(scrapeUrls.id, urlId));
+    await updateJobCounters(jobId);
+    return { internalLinks: [], httpStatus: 0, pageTitle: '', resultsCount: 0 };
+  }
 
   const scrapeAll = scrapeTypes.includes('all');
   const hasLinks = scrapeAll || scrapeTypes.includes('links');

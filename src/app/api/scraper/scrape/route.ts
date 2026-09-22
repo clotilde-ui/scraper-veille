@@ -5,6 +5,7 @@ import { eq, and, sql } from 'drizzle-orm';
 import * as cheerio from 'cheerio';
 import { compileBooleanQuery, extractTerms, isBooleanQuery, normalizeApostrophes } from '@/lib/booleanQuery';
 import { errorMessage } from '@/lib/apiError';
+import { getExcludedDomains, isDomainExcluded } from '@/lib/excludedDomains';
 
 const FETCH_TIMEOUT = 15000;
 // Nombre de caractères capturés de part et d'autre du mot-clé pour le contexte.
@@ -58,6 +59,13 @@ export async function POST(request: Request) {
 
     if (!jobId || !urlId || !url) {
       return NextResponse.json({ error: 'jobId, urlId et url requis' }, { status: 400 });
+    }
+
+    const excludedDomains = await getExcludedDomains();
+    if (isDomainExcluded(url, excludedDomains)) {
+      await db.update(scrapeUrls).set({ status: 'skipped', errorMessage: 'Domaine sur liste noire (Paramètres)', scrapedAt: new Date().toISOString() }).where(eq(scrapeUrls.id, urlId));
+      await updateJobCounters(jobId);
+      return NextResponse.json({ results: 0, internalLinks: [], httpStatus: 0, pageTitle: '', sourceUrl: url, skipped: true });
     }
 
     // Normalize scrapeType: supports legacy string ('all','links',...) or array ['pdfs','keywords']
