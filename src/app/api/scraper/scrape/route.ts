@@ -4,6 +4,7 @@ import { scrapeJobs, scrapeUrls, scrapeResults } from '@/lib/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import * as cheerio from 'cheerio';
 import { compileBooleanQuery, extractTerms, isBooleanQuery, normalizeApostrophes } from '@/lib/booleanQuery';
+import { errorMessage } from '@/lib/apiError';
 
 const FETCH_TIMEOUT = 15000;
 // Nombre de caractères capturés de part et d'autre du mot-clé pour le contexte.
@@ -377,6 +378,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error('Erreur API scrape:', error);
-    return NextResponse.json({ error: 'Erreur serveur interne' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage(error, 'Erreur serveur interne') }, { status: 500 });
   }
 }

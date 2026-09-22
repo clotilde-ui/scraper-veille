@@ -38,15 +38,16 @@ export default function SettingsPage() {
         body: JSON.stringify({ apiKey: apiKeyInput, aiModel }),
       });
       if (!res.ok) {
-        toast.error('Erreur lors de la sauvegarde des paramètres');
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || 'Erreur lors de la sauvegarde des paramètres', { duration: 10000 });
         return;
       }
       const data = await res.json();
       setHasApiKey(Boolean(data.hasApiKey));
       setApiKeyInput('');
       toast.success('Paramètres enregistrés');
-    } catch {
-      toast.error('Erreur lors de la sauvegarde des paramètres');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur lors de la sauvegarde des paramètres', { duration: 10000 });
     } finally {
       setSaving(false);
     }
@@ -61,14 +62,15 @@ export default function SettingsPage() {
         body: JSON.stringify({ clearApiKey: true, aiModel }),
       });
       if (!res.ok) {
-        toast.error('Erreur lors de la suppression de la clé');
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || 'Erreur lors de la suppression de la clé', { duration: 10000 });
         return;
       }
       setHasApiKey(false);
       setApiKeyInput('');
       toast.success('Clé API retirée');
-    } catch {
-      toast.error('Erreur lors de la suppression de la clé');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur lors de la suppression de la clé', { duration: 10000 });
     } finally {
       setSaving(false);
     }

@@ -29,14 +29,15 @@ export function ScraperAiPromptModal({ isOpen, onClose, jobId, initialPrompt, on
         body: JSON.stringify({ aiPrompt }),
       });
       if (!res.ok) {
-        toast.error("Erreur lors de l'enregistrement du prompt");
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || "Erreur lors de l'enregistrement du prompt", { duration: 10000 });
         return;
       }
       onSaved(aiPrompt);
       toast.success('Prompt IA enregistré pour ce job');
       onClose();
-    } catch {
-      toast.error("Erreur lors de l'enregistrement du prompt");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur lors de l'enregistrement du prompt", { duration: 10000 });
     } finally {
       setSaving(false);
     }

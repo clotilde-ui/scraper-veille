@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendJobToSheets } from '@/lib/sendToSheets';
+import { errorMessage } from '@/lib/apiError';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,6 +13,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error sending to Google Sheets:', error);
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage(error, 'Erreur serveur') }, { status: 500 });
   }
 }

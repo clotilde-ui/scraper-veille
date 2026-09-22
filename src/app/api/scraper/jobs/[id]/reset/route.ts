@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { scrapeJobs, scrapeUrls, scrapeResults } from '@/lib/db/schema';
 import { eq, and, gt } from 'drizzle-orm';
+import { errorMessage } from '@/lib/apiError';
 
 export async function POST(
   request: NextRequest,
@@ -30,7 +31,7 @@ export async function POST(
     if (body.urls && body.urls.length > 0) {
       // Nouvelles URLs fournies : tout supprimer et recréer
       await db.delete(scrapeUrls).where(eq(scrapeUrls.jobId, id));
-      await db.insert(scrapeUrls).values(body.urls.map((url: string) => ({
+      const toInsert = body.urls.map((url: string) => ({
         id: crypto.randomUUID(),
         jobId: id,
         url,
@@ -42,7 +43,13 @@ export async function POST(
         pageTitle: null,
         scrapedAt: null,
         createdAt: now,
-      })));
+      }));
+      // SQLite/libSQL limite le nombre de paramètres liés par requête : on
+      // insère par lots pour ne pas dépasser cette limite avec de gros jobs.
+      const BATCH_SIZE = 200;
+      for (let i = 0; i < toInsert.length; i += BATCH_SIZE) {
+        await db.insert(scrapeUrls).values(toInsert.slice(i, i + BATCH_SIZE));
+      }
       updateData.totalUrls = body.urls.length;
     } else {
       // Supprimer les URLs découvertes (depth > 0) et remettre les depth=0 à pending
@@ -60,6 +67,6 @@ export async function POST(
     return NextResponse.json({ ...updated, keywords: updated.keywords ? JSON.parse(updated.keywords) : null });
   } catch (error) {
     console.error('Error resetting job:', error);
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage(error, 'Erreur serveur') }, { status: 500 });
   }
 }
