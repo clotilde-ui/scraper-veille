@@ -12,14 +12,18 @@ export async function POST(
     const { id } = await params;
 
     let limit = 10;
+    let resultIds: string[] | undefined;
     try {
       const body = await request.json();
       if (body?.limit) limit = Math.min(Math.max(Number(body.limit) || 10, 1), 25);
+      if (Array.isArray(body?.resultIds) && body.resultIds.length > 0) {
+        resultIds = body.resultIds.filter((v: unknown) => typeof v === 'string');
+      }
     } catch {
       // pas de corps : on garde la valeur par défaut
     }
 
-    const result = await scoreJobBatch(id, limit);
+    const result = await scoreJobBatch(id, limit, resultIds);
 
     if (result.error) {
       return NextResponse.json(

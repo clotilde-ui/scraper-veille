@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef, useCallback } from 'react';
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { ExternalLink, Copy, Check, Table2, Sparkles, ArrowDown, ArrowUp } from 'lucide-react';
 import { ResultTypeBadge } from './ScraperStatusBadge';
 import { Pagination } from '@/components/Pagination';
@@ -29,7 +29,7 @@ interface ScraperResultsViewProps {
   onSendToSheets?: () => void;
   sheetsSending?: boolean;
   sheetsSendStatus?: 'idle' | 'success' | 'error';
-  onScore?: () => void;
+  onScore?: (resultIds?: string[]) => void;
   scoring?: boolean;
   scoreRemaining?: number | null;
   scoreError?: string | null;
@@ -44,6 +44,8 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
   const [sortScore, setSortScore] = useState<'none' | 'desc' | 'asc'>('none');
   const [colWidths, setColWidths] = useState<Record<ColKey, number>>(DEFAULT_COL_WIDTHS);
   const resizingRef = useRef<{ key: ColKey; startX: number; startWidth: number } | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const selectAllRef = useRef<HTMLInputElement>(null);
 
   const handleResizeStart = useCallback((key: ColKey, e: React.MouseEvent) => {
     e.preventDefault();
@@ -101,6 +103,15 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
 
   const hasKeywordResults = useMemo(() => results.some(r => r.result_type === 'keyword_match'), [results]);
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   // Masque la colonne Label quand aucun résultat n'en a (ex: scraping 100% mots-clés)
   const hasLabels = useMemo(() => results.some(r => r.label && String(r.label).trim() !== ''), [results]);
 
@@ -111,6 +122,32 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
       : sorted.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage),
     [sorted, currentPage, itemsPerPage]
   );
+
+  const selectableOnPage = useMemo(() =>
+    paginated.filter(r => r.result_type === 'keyword_match').map(r => r.id),
+    [paginated]
+  );
+
+  const allOnPageSelected = selectableOnPage.length > 0 && selectableOnPage.every(id => selectedIds.has(id));
+  const someOnPageSelected = selectableOnPage.some(id => selectedIds.has(id));
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = !allOnPageSelected && someOnPageSelected;
+    }
+  }, [allOnPageSelected, someOnPageSelected]);
+
+  const toggleSelectAllOnPage = () => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allOnPageSelected) {
+        selectableOnPage.forEach(id => next.delete(id));
+      } else {
+        selectableOnPage.forEach(id => next.add(id));
+      }
+      return next;
+    });
+  };
 
   // Count par type
   const counts = useMemo(() =>
@@ -197,16 +234,26 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
         {onScore && hasKeywordResults && (
           <>
             {scoreError && <span className="text-xs text-red-500" title={scoreError}>Erreur analyse IA</span>}
+            {selectedIds.size > 0 && (
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                className="text-xs text-slate-500 dark:text-slate-400 hover:underline"
+              >
+                Tout désélectionner
+              </button>
+            )}
             <button
-              onClick={onScore}
+              onClick={() => onScore(selectedIds.size > 0 ? Array.from(selectedIds) : undefined)}
               disabled={scoring}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-500 text-white text-sm font-medium rounded-lg hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              title="Noter chaque correspondance de mots-clés de 0 à 10 avec l'IA"
+              title="Noter de 0 à 10 avec l'IA la pertinence des correspondances de mots-clés"
             >
               <Sparkles className="w-3.5 h-3.5" />
               {scoring
                 ? (scoreRemaining != null ? `Analyse… (${scoreRemaining})` : 'Analyse…')
-                : "Analyser avec l'IA"}
+                : selectedIds.size > 0
+                  ? `Analyser la sélection (${selectedIds.size})`
+                  : "Analyser avec l'IA"}
             </button>
           </>
         )}
@@ -232,6 +279,19 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
         <table className="table-fixed" style={{ width: '100%' }}>
           <thead className="border-b border-slate-200 dark:border-slate-700">
             <tr>
+              <th className="px-4 py-2 w-10">
+                {hasKeywordResults && (
+                  <input
+                    ref={selectAllRef}
+                    type="checkbox"
+                    checked={allOnPageSelected}
+                    onChange={toggleSelectAllOnPage}
+                    disabled={selectableOnPage.length === 0}
+                    className="w-4 h-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                    title="Sélectionner toutes les correspondances de mots-clés de cette page"
+                  />
+                )}
+              </th>
               <th style={{ width: colWidths.site }} className="relative px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">
                 Site scrapé
                 {renderResizeHandle('site')}
@@ -272,6 +332,16 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
           <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
             {paginated.map(result => (
               <tr key={result.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                <td className="px-4 py-2 align-top">
+                  {result.result_type === 'keyword_match' && (
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(result.id)}
+                      onChange={() => toggleSelect(result.id)}
+                      className="w-4 h-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                    />
+                  )}
+                </td>
                 <td className="px-4 py-2 align-top">
                   {result.source_url ? (
                     <a
@@ -344,7 +414,7 @@ export function ScraperResultsView({ results, isLoading, webhookUrl, onSendToShe
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={hasLabels ? 7 : 6} className="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
+                <td colSpan={hasLabels ? 8 : 7} className="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
                   Aucun résultat{activeTab !== 'all' ? ' pour ce type' : ''}
                 </td>
               </tr>

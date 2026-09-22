@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 import { scrapeResults, scrapeJobs, appSettings } from '@/lib/db/schema';
-import { eq, and, isNull, sql } from 'drizzle-orm';
+import { eq, and, isNull, inArray, sql, type SQL } from 'drizzle-orm';
 import { DEFAULT_AI_MODEL } from '@/lib/aiModels';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
@@ -77,15 +77,21 @@ async function callOpenRouter(prompt: string): Promise<string> {
   return content;
 }
 
-async function countRemaining(jobId: string): Promise<number> {
+function scopeConditions(jobId: string, resultIds?: string[]): SQL[] {
+  const conditions = [
+    eq(scrapeResults.jobId, jobId),
+    eq(scrapeResults.resultType, 'keyword_match'),
+    isNull(scrapeResults.aiScore),
+  ];
+  if (resultIds && resultIds.length > 0) conditions.push(inArray(scrapeResults.id, resultIds));
+  return conditions;
+}
+
+async function countRemaining(jobId: string, resultIds?: string[]): Promise<number> {
   const [row] = await db
     .select({ count: sql<number>`count(*)` })
     .from(scrapeResults)
-    .where(and(
-      eq(scrapeResults.jobId, jobId),
-      eq(scrapeResults.resultType, 'keyword_match'),
-      isNull(scrapeResults.aiScore),
-    ));
+    .where(and(...scopeConditions(jobId, resultIds)));
   return Number(row?.count) || 0;
 }
 
@@ -97,10 +103,12 @@ export interface ScoreBatchResult {
 
 /**
  * Note un lot de résultats keyword_match non encore notés pour un job.
+ * Si `resultIds` est fourni, ne traite que ces résultats (sélection manuelle
+ * de l'utilisateur) ; sinon, traite tous les résultats non notés du job.
  * Traite au plus `limit` résultats puis renvoie le nombre restant — le client
  * rappelle jusqu'à remaining === 0 (évite les timeouts de fonction serverless).
  */
-export async function scoreJobBatch(jobId: string, limit = 10): Promise<ScoreBatchResult> {
+export async function scoreJobBatch(jobId: string, limit = 10, resultIds?: string[]): Promise<ScoreBatchResult> {
   const [job] = await db.select().from(scrapeJobs).where(eq(scrapeJobs.id, jobId));
   if (!job) return { scored: 0, remaining: 0, error: 'Job introuvable' };
 
@@ -112,11 +120,7 @@ export async function scoreJobBatch(jobId: string, limit = 10): Promise<ScoreBat
   const pending = await db
     .select()
     .from(scrapeResults)
-    .where(and(
-      eq(scrapeResults.jobId, jobId),
-      eq(scrapeResults.resultType, 'keyword_match'),
-      isNull(scrapeResults.aiScore),
-    ))
+    .where(and(...scopeConditions(jobId, resultIds)))
     .limit(limit);
 
   let scored = 0;
@@ -129,7 +133,7 @@ export async function scoreJobBatch(jobId: string, limit = 10): Promise<ScoreBat
       const msg = (e as Error).message || 'Erreur OpenRouter';
       // Erreur de config ou transitoire (réseau/quota) : on interrompt sans
       // marquer les lignes, pour que l'utilisateur puisse réessayer plus tard.
-      return { scored, remaining: await countRemaining(jobId), error: msg };
+      return { scored, remaining: await countRemaining(jobId, resultIds), error: msg };
     }
 
     const score = parseScore(reply);
@@ -140,5 +144,5 @@ export async function scoreJobBatch(jobId: string, limit = 10): Promise<ScoreBat
     if (score !== null) scored++;
   }
 
-  return { scored, remaining: await countRemaining(jobId) };
+  return { scored, remaining: await countRemaining(jobId, resultIds) };
 }
